@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const ForgotPasswordReset = () => {
   const navigate = useNavigate();
@@ -10,22 +11,61 @@ const ForgotPasswordReset = () => {
 
   const handleResetPassword = async () => {
     if (!newPassword || !confirmPassword) {
-      setMessage("Please fill out both password fields.");
+      const msg = "Please fill out both password fields.";
+      setMessage(msg);
+      toast.error(msg);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setMessage("Passwords do not match.");
+      const msg = "Passwords do not match.";
+      setMessage(msg);
+      toast.error(msg);
+      return;
+    }
+    const token = localStorage.getItem("resetToken");
+    if (!token) {
+      const msg = "Reset token not found. Please verify OTP again.";
+      setMessage(msg);
+      toast.error(msg);
       return;
     }
 
-    setIsLoading(true);
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
+    if (!backendUrl) {
+      const msg = "Backend URL is not configured.";
+      setMessage(msg);
+      toast.error(msg);
+      return;
+    }
 
-    // TODO: Add your reset logic here (call backend, validate OTP, etc.)
-    setTimeout(() => {
+    try {
+      setIsLoading(true);
+      const resp = await fetch(`${backendUrl}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword, token }),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        const msg = data?.message ?? "Password reset successfully.";
+        setMessage(msg);
+        toast.success(msg);
+        localStorage.removeItem("resetToken");
+        navigate("/login");
+      } else {
+        const msg = data?.message || "Password reset failed.";
+        setMessage(msg);
+        toast.error(msg);
+      }
+    } catch (err) {
+      console.log(err);
+      const msg = "Failed to reset password. Please try again later.";
+      setMessage(msg);
+      toast.error(msg);
+    } finally {
       setIsLoading(false);
-      setMessage("Password reset logic should be implemented here.");
-    }, 800);
+    }
   };
 
   return (
@@ -108,7 +148,14 @@ const ForgotPasswordReset = () => {
                   onClick={handleResetPassword}
                   className="bg-[#1E4F7A] text-white py-2.5 rounded-full hover:bg-[#143A5A] transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? "Resetting..." : "Reset password"}
+                  {isLoading ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <span className="loading loading-spinner loading-sm"></span>
+                      Resetting...
+                    </span>
+                  ) : (
+                    "Reset password"
+                  )}
                 </button>
 
                 <div className="flex justify-between text-sm text-gray-500">

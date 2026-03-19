@@ -1,7 +1,7 @@
 import Nav from "@/components/Nav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, MessageSquareText, UserCheck } from "lucide-react";
+import { MessageSquareText, UserCheck } from "lucide-react";
 
 // 🛑 STATIC MOCK DATA
 const mockRequests = [
@@ -10,7 +10,8 @@ const mockRequests = [
     name: "Zainab Malik",
     username: "@zainab.codes",
     avatar: "https://i.pravatar.cc/150?u=zainab",
-    message: "Hey! We worked on the last project together. Would love to connect.",
+    message:
+      "Hey! We worked on the last project together. Would love to connect.",
     time: "5m",
   },
   {

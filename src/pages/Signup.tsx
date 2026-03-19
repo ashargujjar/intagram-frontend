@@ -83,6 +83,7 @@ const Signup = () => {
         toast.error(data?.message ?? "Signup failed. Please try again.");
       }
     } catch (error) {
+      console.log(error);
       toast.error("Unable to sign up right now. Please try again.");
     } finally {
       setIsLoading(false);

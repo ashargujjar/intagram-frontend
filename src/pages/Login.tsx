@@ -4,11 +4,13 @@ import Input from "../components/Input";
 import Features from "@/components/login/Features";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 type LOGIN = {
   username: string;
   password: string;
 };
 const Login = () => {
+  const navigate = useNavigate();
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
   const [loginData, setLoginData] = useState<LOGIN>({
     username: "",
@@ -35,10 +37,12 @@ const Login = () => {
       const data = await resp.json().catch(() => ({}));
       if (resp.ok) {
         toast.success(data?.message ?? "Login successful.");
+        navigate("/home");
       } else {
         toast.error(data?.message ?? "Login failed. Please try again.");
       }
     } catch (error) {
+      console.log(error);
       toast.error("Unable to login right now. Please try again.");
     } finally {
       setIsLoading(false);

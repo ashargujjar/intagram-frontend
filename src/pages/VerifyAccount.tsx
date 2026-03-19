@@ -41,6 +41,7 @@ const VerifyAccount = () => {
         }
       } catch (err) {
         const msg = "Failed to send token. Please try again later.";
+        console.log(err);
         setMessage(msg);
         toast.error(msg);
       } finally {

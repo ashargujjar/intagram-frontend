@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const ForgotPasswordVerify = () => {
   const navigate = useNavigate();
@@ -9,7 +10,9 @@ const ForgotPasswordVerify = () => {
 
   const handleVerifyOtp = async () => {
     if (!otp) {
-      setMessage("OTP not found. Please request a new one.");
+      const msg = "OTP not found. Please request a new one.";
+      setMessage(msg);
+      toast.error(msg);
       return;
     }
 
@@ -17,7 +20,9 @@ const ForgotPasswordVerify = () => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
     if (!backendUrl) {
-      setMessage("Backend URL is not configured.");
+      const msg = "Backend URL is not configured.";
+      setMessage(msg);
+      toast.error(msg);
       setIsLoading(false);
       return;
     }
@@ -31,15 +36,27 @@ const ForgotPasswordVerify = () => {
       const data = await resp.json();
 
       if (resp.ok) {
-        setMessage("OTP verified. You may now reset your password.");
+        const resetToken = data?.data?.token;
+        if (resetToken) {
+          localStorage.setItem("resetToken", resetToken);
+        }
+        const msg =
+          data?.message ?? "OTP verified. You may now reset your password.";
+        setMessage(msg);
+        toast.success(msg);
         setTimeout(() => {
-          navigate(`/forgot-password/reset?otp=${encodeURIComponent(otp)}`);
+          navigate(`/forgot-password/reset`);
         }, 1000);
       } else {
-        setMessage(data?.message || "OTP verification failed.");
+        const msg = data?.message || "OTP verification failed.";
+        setMessage(msg);
+        toast.error(msg);
       }
     } catch (err) {
-      setMessage("We could not verify the OTP. Please try again later.");
+      console.log(err);
+      const msg = "We could not verify the OTP. Please try again later.";
+      setMessage(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +129,14 @@ const ForgotPasswordVerify = () => {
                   onClick={handleVerifyOtp}
                   className="bg-[#1E4F7A] text-white py-2.5 rounded-full hover:bg-[#143A5A] transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? "Verifying..." : "Verify OTP"}
+                  {isLoading ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <span className="loading loading-spinner loading-sm"></span>
+                      Verifying...
+                    </span>
+                  ) : (
+                    "Verify OTP"
+                  )}
                 </button>
 
                 <div className="flex justify-between text-sm text-gray-500">

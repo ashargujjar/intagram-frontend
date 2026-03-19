@@ -61,6 +61,7 @@ const VerifyToken = () => {
       }
     } catch (err) {
       const msg = "We could not verify the token. Please try again later.";
+      console.log(err);
       setMessage(msg);
       toast.error(msg);
     } finally {

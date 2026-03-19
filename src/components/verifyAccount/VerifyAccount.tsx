@@ -1,3 +1,4 @@
+import type { ChangeEvent } from "react";
 import Input from "../Input";
 type VerifyAccountProps = {
   stepNumber: string;
@@ -7,6 +8,8 @@ type VerifyAccountProps = {
   placeholder: string;
   type: string;
   buttonText: string;
+  value: string;
+  handleChange: (event: ChangeEvent<HTMLInputElement>) => void;
 };
 const VerifyAccountInputProp = ({
   stepNumber,
@@ -16,6 +19,8 @@ const VerifyAccountInputProp = ({
   placeholder,
   type,
   buttonText,
+  value,
+  handleChange,
 }: VerifyAccountProps) => {
   return (
     <div className="md:col-span-3 p-8 flex flex-col gap-8">
@@ -34,6 +39,8 @@ const VerifyAccountInputProp = ({
           name={name}
           placeholder={placeholder}
           type={type}
+          value={value}
+          handleChange={handleChange}
         />
 
         <button
