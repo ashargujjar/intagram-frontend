@@ -35,7 +35,9 @@ const Login = () => {
         body: JSON.stringify(loginData),
       });
       const data = await resp.json().catch(() => ({}));
+
       if (resp.ok) {
+        localStorage.setItem("RabtaLtoken", data.data.token);
         toast.success(data?.message ?? "Login successful.");
         navigate("/home");
       } else {

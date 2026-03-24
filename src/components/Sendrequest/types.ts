@@ -1,7 +1,7 @@
 export type RequestStatus = "pending" | "approved" | "declined" | "canceled";
 
 export type RequestHistoryItem = {
-  id: string;
+  id?: string;
   name: string;
   handle: string;
   status: RequestStatus;

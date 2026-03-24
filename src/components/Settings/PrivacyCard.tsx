@@ -8,13 +8,20 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Shield } from "lucide-react";
-import type { SettingsUser } from "./types";
+import type { Profileprop } from "./types";
 
 type PrivacyCardProps = {
-  user: SettingsUser;
+  user: Profileprop;
+  onToggle: (nextValue: boolean) => void;
+  isLoading?: boolean;
 };
 
-const PrivacyCard = ({ user }: PrivacyCardProps) => {
+const PrivacyCard = ({
+  user,
+  onToggle,
+  isLoading = false,
+}: PrivacyCardProps) => {
+  const nextValue = !user.private;
   return (
     <Card className="w-full shadow-lg border-[#E6EEF5] bg-white/90 backdrop-blur rounded-2xl overflow-hidden">
       <CardHeader className="border-b border-[#E6EEF5] pb-4 bg-[#F6FBFF]">
@@ -34,28 +41,28 @@ const PrivacyCard = ({ user }: PrivacyCardProps) => {
 
         <button
           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1E4F7A] focus-visible:ring-offset-2 ${
-            user.isPrivate ? "bg-[#1E4F7A]" : "bg-gray-200"
+            user.private ? "bg-[#1E4F7A]" : "bg-gray-200"
           }`}
           role="switch"
-          aria-checked={user.isPrivate}
+          aria-checked={user.private}
+          aria-disabled={isLoading}
+          disabled={isLoading}
+          onClick={() => onToggle(nextValue)}
         >
           <span
             className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-              user.isPrivate ? "translate-x-5" : "translate-x-0"
+              user.private ? "translate-x-5" : "translate-x-0"
             }`}
           />
         </button>
       </CardContent>
-      <CardFooter className="bg-[#F6FBFF] border-t border-[#E6EEF5] p-4 flex flex-col sm:flex-row gap-2 sm:justify-between sm:items-center">
+      <CardFooter className="bg-[#F6FBFF] border-t border-[#E6EEF5] p-4 flex">
         <a
           href="/friend-requests"
           className="text-sm font-semibold text-[#1E4F7A] hover:underline"
         >
           View friend requests
         </a>
-        <Button className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-8 cursor-pointer">
-          Save Privacy Settings
-        </Button>
       </CardFooter>
     </Card>
   );

@@ -1,9 +1,13 @@
-export type SettingsUser = {
-  name: string;
+export interface Profileprop {
   username: string;
   email: string;
-  bio: string;
-  link: string;
-  avatar: string;
-  isPrivate: boolean;
-};
+  name?: string;
+  bio?: string;
+  url?: string;
+  introAudio?: string;
+  profilePhoto?: string;
+  private?: boolean;
+  followers?: number;
+  following?: number;
+  posts?: number;
+}

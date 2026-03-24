@@ -10,8 +10,23 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Lock } from "lucide-react";
+import type { ChangeEvent } from "react";
 
-const SecurityCard = () => {
+type SecurityCardProps = {
+  currentPassword: string;
+  newPassword: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onUpdate: () => void;
+  isLoading?: boolean;
+};
+
+const SecurityCard = ({
+  currentPassword,
+  newPassword,
+  onChange,
+  onUpdate,
+  isLoading = false,
+}: SecurityCardProps) => {
   return (
     <Card className="w-full shadow-lg border-[#E6EEF5] bg-white/90 backdrop-blur rounded-2xl overflow-hidden">
       <CardHeader className="border-b border-[#E6EEF5] pb-4 bg-[#F6FBFF]">
@@ -29,8 +44,11 @@ const SecurityCard = () => {
           </Label>
           <Input
             id="current-password"
+            name="currentPassword"
             type="password"
             placeholder="Enter current password"
+            value={currentPassword}
+            onChange={onChange}
             className="bg-white focus-visible:ring-[#1E4F7A]"
           />
         </div>
@@ -40,15 +58,22 @@ const SecurityCard = () => {
           </Label>
           <Input
             id="new-password"
+            name="newPassword"
             type="password"
             placeholder="Create new password"
+            value={newPassword}
+            onChange={onChange}
             className="bg-white focus-visible:ring-[#1E4F7A]"
           />
         </div>
       </CardContent>
       <CardFooter className="bg-[#F6FBFF] border-t border-[#E6EEF5] p-4 flex justify-end">
-        <Button className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-8 cursor-pointer">
-          Update Password
+        <Button
+          className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-8 cursor-pointer"
+          onClick={onUpdate}
+          disabled={isLoading}
+        >
+          {isLoading ? "Updating..." : "Update Password"}
         </Button>
       </CardFooter>
     </Card>

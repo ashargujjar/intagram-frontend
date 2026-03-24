@@ -11,13 +11,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Link as LinkIcon, PencilLine } from "lucide-react";
-import type { SettingsUser } from "./types";
+import type { Profileprop } from "./types";
 
 type ProfileDetailsCardProps = {
-  user: SettingsUser;
+  user: Profileprop;
+  handleChange: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  handleClick: () => void;
+  onUpdate?: () => void;
+  isLoading?: boolean;
 };
 
-const ProfileDetailsCard = ({ user }: ProfileDetailsCardProps) => {
+const ProfileDetailsCard = ({
+  user,
+  handleChange,
+  isLoading = false,
+  handleClick,
+}: ProfileDetailsCardProps) => {
   return (
     <Card className="w-full shadow-lg border-[#E6EEF5] bg-white/90 backdrop-blur rounded-2xl overflow-hidden">
       <CardHeader className="border-b border-[#E6EEF5] pb-4 bg-[#F6FBFF]">
@@ -35,7 +46,10 @@ const ProfileDetailsCard = ({ user }: ProfileDetailsCardProps) => {
           </Label>
           <Input
             id="display-name"
-            defaultValue={user.name}
+            name="name" // ← Added name attribute
+            placeholder="Enter name to set"
+            value={user.name || ""} // ← Changed from defaultValue to value
+            onChange={handleChange}
             className="bg-white focus-visible:ring-[#1E4F7A]"
           />
         </div>
@@ -46,7 +60,10 @@ const ProfileDetailsCard = ({ user }: ProfileDetailsCardProps) => {
           </Label>
           <Textarea
             id="bio"
-            defaultValue={user.bio}
+            name="bio" // ← Added name attribute
+            placeholder="Set your bio now"
+            value={user.bio || ""} // ← Changed from defaultValue to value
+            onChange={handleChange}
             className="min-h-[110px] resize-none bg-white focus-visible:ring-[#1E4F7A]"
           />
         </div>
@@ -59,15 +76,22 @@ const ProfileDetailsCard = ({ user }: ProfileDetailsCardProps) => {
             <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               id="profile-link"
-              defaultValue={user.link}
+              name="url" // ← Added name attribute
+              placeholder="Set your link"
+              value={user.url || ""} // ← Changed from defaultValue to value
+              onChange={handleChange}
               className="pl-10 bg-white focus-visible:ring-[#1E4F7A]"
             />
           </div>
         </div>
       </CardContent>
       <CardFooter className="bg-[#F6FBFF] border-t border-[#E6EEF5] p-4 flex justify-end">
-        <Button className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-8 cursor-pointer">
-          Update Profile
+        <Button
+          className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-8 cursor-pointer"
+          onClick={handleClick} // ← Added onClick handler
+          disabled={isLoading} // ← Optional: disable while loading
+        >
+          {isLoading ? "Updating..." : "Update Profile"}
         </Button>
       </CardFooter>
     </Card>

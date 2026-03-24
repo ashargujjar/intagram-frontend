@@ -10,10 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Mail, User } from "lucide-react";
-import type { SettingsUser } from "./types";
+import type { Profileprop } from "./types";
 
 type AccountInfoCardProps = {
-  user: SettingsUser;
+  user: Profileprop;
 };
 
 const AccountInfoCard = ({ user }: AccountInfoCardProps) => {
@@ -23,9 +23,7 @@ const AccountInfoCard = ({ user }: AccountInfoCardProps) => {
         <CardTitle className="text-lg text-[#1E4F7A] flex items-center gap-2">
           <User className="w-5 h-5" /> Account Information
         </CardTitle>
-        <CardDescription>
-          Update your username and email address.
-        </CardDescription>
+        <CardDescription>View your username and email address.</CardDescription>
       </CardHeader>
       <CardContent className="p-6 flex flex-col gap-6">
         <div className="grid w-full gap-2">
@@ -37,6 +35,8 @@ const AccountInfoCard = ({ user }: AccountInfoCardProps) => {
             <Input
               id="username"
               defaultValue={user.username}
+              readOnly
+              aria-readonly="true"
               className="pl-10 bg-white focus-visible:ring-[#1E4F7A]"
             />
           </div>
@@ -52,13 +52,18 @@ const AccountInfoCard = ({ user }: AccountInfoCardProps) => {
               id="email"
               type="email"
               defaultValue={user.email}
+              readOnly
+              aria-readonly="true"
               className="pl-10 bg-white focus-visible:ring-[#1E4F7A]"
             />
           </div>
         </div>
       </CardContent>
       <CardFooter className="bg-[#F6FBFF] border-t border-[#E6EEF5] p-4 flex justify-end">
-        <Button className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-8 cursor-pointer">
+        <Button
+          disabled
+          className="bg-[#1E4F7A] text-white px-8 cursor-not-allowed opacity-60"
+        >
           Update Account
         </Button>
       </CardFooter>
