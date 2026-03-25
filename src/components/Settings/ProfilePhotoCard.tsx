@@ -17,8 +17,10 @@ type ProfilePhotoCardProps = {
   previewUrl?: string | null;
   selectedFileName?: string;
   isUploading?: boolean;
+  isLoading?: boolean;
   onSelectFile: (file: File | null) => void;
   onUpload: () => void;
+  onRemove: () => void;
 };
 
 const ProfilePhotoCard = ({
@@ -26,8 +28,10 @@ const ProfilePhotoCard = ({
   previewUrl,
   selectedFileName,
   isUploading = false,
+  isLoading = false,
   onSelectFile,
   onUpload,
+  onRemove,
 }: ProfilePhotoCardProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const avatarSrc = previewUrl || user.profilePhoto || "";
@@ -42,7 +46,9 @@ const ProfilePhotoCard = ({
       <CardContent className="p-6 flex items-center gap-6">
         <Avatar className="w-20 h-20 border border-gray-200 shadow-sm">
           <AvatarImage src={avatarSrc} />
-          <AvatarFallback>{user?.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
+          <AvatarFallback>
+            {user?.name?.[0]?.toUpperCase() || "U"}
+          </AvatarFallback>
         </Avatar>
         <div className="flex flex-col gap-2">
           <input
@@ -67,7 +73,16 @@ const ProfilePhotoCard = ({
           </span>
         </div>
       </CardContent>
-      <CardFooter className="bg-[#F6FBFF] border-t border-[#E6EEF5] p-4 flex justify-end">
+      <CardFooter className="bg-[#F6FBFF] border-t border-[#E6EEF5] p-4 flex flex-wrap items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={onRemove}
+          className="border-gray-300 text-gray-600 hover:bg-gray-50 px-6"
+          type="button"
+          disabled={isLoading}
+        >
+          {isLoading ? <p>Please wait ... </p> : <p>Remove</p>}
+        </Button>
         <Button
           className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-8 cursor-pointer"
           onClick={onUpload}

@@ -34,13 +34,14 @@ const Settings = () => {
     profilePhoto: "",
     url: "",
   });
+  const backend_url = import.meta.env.VITE_BACKEND_URL;
   useEffect(() => {
     async function getBio() {
       if (!token) {
         return;
       }
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/bio`, {
+        const res = await fetch(`${backend_url}/bio`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -87,6 +88,46 @@ const Settings = () => {
   function handlePhotoSelect(file: File | null) {
     setSelectedPhoto(file);
   }
+  // remove profile
+  async function RemoveProfile() {
+    if (!token) {
+      toast.error("Please login to update your profile.");
+      return;
+    }
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`${backend_url}/profilePhoto`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const updated = data?.data?.userbio;
+        if (updated) {
+          setBio((prev) => ({
+            ...prev,
+            ...updated,
+          }));
+        }
+        setSelectedPhoto(null);
+        setPhotoPreview(null);
+        toast.success(data.message || "profile photho deleted succesfully");
+      } else {
+        toast.error(
+          data.message || "something went wrong removing profile photo",
+        );
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error("error removing the profile");
+    } finally {
+      setIsUpdating(false);
+    }
+  }
   async function handleProfileDetailsclick() {
     if (!token) {
       toast.error("Please login to update your profile.");
@@ -94,7 +135,7 @@ const Settings = () => {
     }
     setIsUpdating(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/bio`, {
+      const res = await fetch(`${backend_url}/bio`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -137,7 +178,7 @@ const Settings = () => {
     }
     setIsPasswordUpdating(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/password`, {
+      const res = await fetch(`${backend_url}/password`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -169,7 +210,7 @@ const Settings = () => {
     }
     setIsPrivacyUpdating(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/bio`, {
+      const res = await fetch(`${backend_url}/bio`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -264,6 +305,8 @@ const Settings = () => {
               isUploading={isPhotoUploading}
               onSelectFile={handlePhotoSelect}
               onUpload={handleUploadPhoto}
+              onRemove={RemoveProfile}
+              isLoading={isUpdating}
             />
             <AccountInfoCard user={bio} />
             <ProfileDetailsCard

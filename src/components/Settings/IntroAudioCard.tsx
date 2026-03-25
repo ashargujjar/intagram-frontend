@@ -50,6 +50,13 @@ const IntroAudioCard = () => {
           >
             Cancel Audio
           </Button>
+          <Button
+            variant="outline"
+            className="border-red-200 text-red-600 hover:bg-red-50"
+            type="button"
+          >
+            Remove
+          </Button>
         </div>
       </CardContent>
       <CardFooter className="bg-[#F6FBFF] border-t border-[#E6EEF5] p-4 text-xs text-gray-500">
