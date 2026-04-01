@@ -8,8 +8,274 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mic, Square } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { Profileprop } from "./types";
 
-const IntroAudioCard = () => {
+type IntroAudioCardProps = {
+  user?: Profileprop;
+  maxSeconds?: number;
+  isSaving?: boolean;
+  isRemoving?: boolean;
+  onSave?: (
+    file: File,
+    previewUrl: string,
+    durationSeconds: number,
+  ) => Promise<boolean> | boolean;
+  onRemove?: () => Promise<boolean> | boolean;
+};
+
+const formatTime = (seconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const mins = Math.floor(safeSeconds / 60);
+  const secs = safeSeconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
+const getSupportedMimeType = () => {
+  if (typeof MediaRecorder === "undefined") {
+    return "";
+  }
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+    "audio/mp4",
+  ];
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+};
+
+const getFileExtension = (mimeType: string) => {
+  if (mimeType.includes("ogg")) {
+    return "ogg";
+  }
+  if (mimeType.includes("mp4")) {
+    return "mp4";
+  }
+  return "webm";
+};
+
+const IntroAudioCard = ({
+  user,
+  maxSeconds = 10,
+  isSaving = false,
+  isRemoving = false,
+  onSave,
+  onRemove,
+}: IntroAudioCardProps) => {
+  const maxDuration = Math.min(Math.max(maxSeconds, 1), 60);
+  const [isRecording, setIsRecording] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [recordedSeconds, setRecordedSeconds] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [localSavedUrl, setLocalSavedUrl] = useState("");
+  const [error, setError] = useState("");
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const previewUrlRef = useRef<string>("");
+  const savedUrlRef = useRef<string>("");
+
+  const currentSavedUrl = user?.introAudio || localSavedUrl;
+  const hasPreview = Boolean(previewUrl);
+  const displayUrl = hasPreview ? previewUrl : currentSavedUrl;
+  const activeSeconds = isRecording
+    ? Math.ceil(elapsedMs / 1000)
+    : recordedSeconds;
+  const progress =
+    maxDuration > 0 ? Math.min(activeSeconds / maxDuration, 1) : 0;
+  const canRemove = Boolean(localSavedUrl || (user?.introAudio && onRemove));
+
+  const clearTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const cleanupStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const clearPreview = () => {
+    if (previewUrl && previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl("");
+    setRecordedBlob(null);
+    setRecordedSeconds(0);
+    setElapsedMs(0);
+  };
+
+  const stopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== "recording") {
+      return;
+    }
+    const elapsed = Date.now() - startTimeRef.current;
+    const seconds = Math.min(
+      maxDuration,
+      Math.max(1, Math.round(elapsed / 1000)),
+    );
+    setRecordedSeconds(seconds);
+    setIsRecording(false);
+    clearTimer();
+    recorder.stop();
+    cleanupStream();
+  };
+
+  const startRecording = async () => {
+    try {
+      if (typeof MediaRecorder === "undefined") {
+        setError("Audio recording is not supported in this browser.");
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError("Microphone access is not available in this browser.");
+        return;
+      }
+      setError("");
+      clearPreview();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mimeType = getSupportedMimeType();
+      const mediaRecorder = new MediaRecorder(
+        stream,
+        mimeType ? { mimeType } : undefined,
+      );
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data?.size) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: mediaRecorder.mimeType || "audio/webm",
+        });
+        setRecordedBlob(audioBlob);
+        const url = URL.createObjectURL(audioBlob);
+        setPreviewUrl(url);
+      };
+      mediaRecorder.onerror = () => {
+        setError("Recording failed. Please try again.");
+      };
+      mediaRecorder.start();
+      setIsRecording(true);
+      setElapsedMs(0);
+      startTimeRef.current = Date.now();
+      timerRef.current = setInterval(() => {
+        const elapsed = Date.now() - startTimeRef.current;
+        setElapsedMs(elapsed);
+        if (elapsed >= maxDuration * 1000) {
+          stopRecording();
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      cleanupStream();
+      setError("Microphone access was blocked.");
+    }
+  };
+
+  const handleSave = async () => {
+    if (!recordedBlob || !previewUrl) {
+      return;
+    }
+    const mimeType = recordedBlob.type || "audio/webm";
+    const extension = getFileExtension(mimeType);
+    const file = new File([recordedBlob], `intro-audio.${extension}`, {
+      type: mimeType,
+    });
+    setError("");
+    try {
+      if (onSave) {
+        const result = await Promise.resolve(
+          onSave(file, previewUrl, recordedSeconds),
+        );
+        if (result === false) {
+          setError("Failed to save intro audio. Please try again.");
+          return;
+        }
+      }
+      setLocalSavedUrl(previewUrl);
+      setRecordedBlob(null);
+      setRecordedSeconds(0);
+      setPreviewUrl("");
+      setElapsedMs(0);
+    } catch (err) {
+      console.error("Error saving intro audio:", err);
+      setError("Failed to save intro audio. Please try again.");
+    }
+  };
+
+  const handleCancel = () => {
+    clearPreview();
+  };
+
+  const handleRemove = async () => {
+    setError("");
+    try {
+      if (onRemove) {
+        const result = await Promise.resolve(onRemove());
+        if (result === false) {
+          setError("Failed to remove intro audio. Please try again.");
+          return;
+        }
+      }
+      if (localSavedUrl && localSavedUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(localSavedUrl);
+      }
+      if (user?.introAudio && user.introAudio.startsWith("blob:")) {
+        URL.revokeObjectURL(user.introAudio);
+      }
+      setLocalSavedUrl("");
+      clearPreview();
+    } catch (err) {
+      console.error("Error removing intro audio:", err);
+      setError("Failed to remove intro audio. Please try again.");
+    }
+  };
+
+  useEffect(() => {
+    previewUrlRef.current = previewUrl;
+  }, [previewUrl]);
+
+  useEffect(() => {
+    savedUrlRef.current = localSavedUrl;
+  }, [localSavedUrl]);
+
+  useEffect(() => {
+    if (!localSavedUrl || !user?.introAudio) {
+      return;
+    }
+    if (user.introAudio !== localSavedUrl) {
+      if (localSavedUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(localSavedUrl);
+      }
+      setLocalSavedUrl("");
+    }
+  }, [user?.introAudio, localSavedUrl]);
+
+  useEffect(() => {
+    return () => {
+      clearTimer();
+      cleanupStream();
+      if (previewUrlRef.current.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+      if (savedUrlRef.current.startsWith("blob:")) {
+        URL.revokeObjectURL(savedUrlRef.current);
+      }
+    };
+  }, []);
   return (
     <Card className="w-full shadow-lg border-[#E6EEF5] bg-white/90 backdrop-blur rounded-2xl overflow-hidden">
       <CardHeader className="border-b border-[#E6EEF5] pb-4 bg-[#F6FBFF]">
@@ -22,31 +288,73 @@ const IntroAudioCard = () => {
       </CardHeader>
       <CardContent className="p-6 flex flex-col gap-4">
         <div className="text-xs text-gray-500 font-medium">
-          Max length: 10 seconds
+          Max length: {maxDuration} seconds
         </div>
+        {error ? (
+          <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">
+            {error}
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
-          <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-[#F6FBFF] transition">
+          <button
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-[#F6FBFF] transition disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={startRecording}
+            type="button"
+            disabled={isRecording || isSaving}
+          >
             <Mic className="w-4 h-4" />
-            Record
+            {hasPreview ? "Re-record" : "Record"}
           </button>
-          <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition">
+          <button
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={stopRecording}
+            type="button"
+            disabled={!isRecording}
+          >
             <Square className="w-4 h-4" />
             Stop
           </button>
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <div className="w-24 h-2 rounded-full bg-gray-200 overflow-hidden">
-              <div className="h-full w-1/2 bg-[#1E4F7A]" />
+              <div
+                className="h-full bg-[#1E4F7A] transition-all"
+                style={{ width: `${progress * 100}%` }}
+              />
             </div>
-            0:05 / 0:10
+            {formatTime(activeSeconds)} / {formatTime(maxDuration)}
           </div>
         </div>
+        {displayUrl ? (
+          <div className="rounded-2xl border border-[#E6EEF5] bg-white/90 p-4 shadow-sm">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+              <span className="font-semibold text-[#1E4F7A]">
+                {hasPreview ? "Preview (not saved yet)" : "Current intro audio"}
+              </span>
+              {hasPreview && recordedSeconds ? (
+                <span>{formatTime(recordedSeconds)}</span>
+              ) : null}
+            </div>
+            <audio controls src={displayUrl} className="w-full h-9" />
+          </div>
+        ) : (
+          <div className="text-xs text-gray-500">
+            No intro audio set yet.
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
-          <Button className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-6 cursor-pointer">
-            Set Intro Audio
+          <Button
+            className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-6 cursor-pointer"
+            onClick={handleSave}
+            disabled={!hasPreview || isSaving || isRecording}
+          >
+            {isSaving ? "Saving..." : "Set Intro Audio"}
           </Button>
           <Button
             variant="outline"
             className="border-gray-300 text-gray-600 hover:bg-gray-50"
+            onClick={handleCancel}
+            type="button"
+            disabled={!hasPreview || isRecording}
           >
             Cancel Audio
           </Button>
@@ -54,8 +362,10 @@ const IntroAudioCard = () => {
             variant="outline"
             className="border-red-200 text-red-600 hover:bg-red-50"
             type="button"
+            onClick={handleRemove}
+            disabled={!canRemove || isRemoving}
           >
-            Remove
+            {isRemoving ? "Removing..." : "Remove"}
           </Button>
         </div>
       </CardContent>

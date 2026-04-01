@@ -1,76 +1,141 @@
-import Nav from "@/components/Nav";
+﻿import Nav from "@/components/Nav";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import type { Profileprop } from "@/components/Settings/types";
 
-// 🛑 STATIC MOCK DATA
-const mockUser = {
-  name: "Ashar",
-  username: "@ashar.dev",
-  bio: "MERN Stack Developer 💻 | CUST '26 🎓 | Building ShipSmart 🚀",
-  link: "github.com/ashar",
-  avatar:
-    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop",
-  followers: 84,
-  following: 84,
-  posts: 9,
-  isPrivate: true,
-  introAudioUrl:
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-  introAudioDuration: "0:10",
+type PhotoPost = {
+  _id?: string;
+  id?: string;
+  post?: string[];
+  likesCount?: number;
+  commentsCount?: number;
 };
 
-// 🛑 MOCK POSTS GRID DATA
-const mockPosts = [
-  {
-    id: 1,
-    img: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=400&auto=format&fit=crop",
-    likes: 120,
-    comments: 14,
-  },
-  {
-    id: 2,
-    img: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=400&auto=format&fit=crop",
-    likes: 89,
-    comments: 5,
-  },
-  {
-    id: 3,
-    img: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=400&auto=format&fit=crop",
-    likes: 302,
-    comments: 42,
-  },
-  {
-    id: 4,
-    img: "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?q=80&w=400&auto=format&fit=crop",
-    likes: 45,
-    comments: 2,
-  },
-  {
-    id: 5,
-    img: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=400&auto=format&fit=crop",
-    likes: 210,
-    comments: 18,
-  },
-  {
-    id: 6,
-    img: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=400&auto=format&fit=crop",
-    likes: 77,
-    comments: 1,
-  },
-];
+type GridItem = {
+  id: string | number;
+  img: string;
+  likes: number;
+  comments: number;
+};
 
 const Profile = () => {
   const [searchParams] = useSearchParams();
   const viewedUsername = searchParams.get("user");
   const isPrivateParam = searchParams.get("private") === "1";
+  const token = localStorage.getItem("RabtaLtoken");
+  const backend_url = import.meta.env.VITE_BACKEND_URL;
+  const [profile, setProfile] = useState<Profileprop | null>(null);
+  const [posts, setPosts] = useState<PhotoPost[]>([]);
+
+  useEffect(() => {
+    if (!token || viewedUsername || !backend_url) {
+      return;
+    }
+    async function getBio() {
+      try {
+        const res = await fetch(`${backend_url}/bio`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          method: "GET",
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setProfile(data?.data?.userbio ?? null);
+        } else {
+          console.log(data?.message ?? "Unable to load profile details.");
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+    async function fetchPhotos() {
+      try {
+        const res = await fetch(`${backend_url}/photo`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          method: "GET",
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setPosts(Array.isArray(data?.data?.photos) ? data.data.photos : []);
+        } else {
+          console.log(data?.message ?? "Unable to load posts.");
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    getBio();
+    fetchPhotos();
+  }, [token, backend_url, viewedUsername]);
+
   const isCurrentUser = !viewedUsername;
   const isFollowing = false;
-  const viewedUser = {
-    ...mockUser,
-    username: viewedUsername || mockUser.username,
-    isPrivate: isPrivateParam || mockUser.isPrivate,
+  const fallbackUser: Profileprop = {
+    username: viewedUsername || "user",
+    email: "",
+    name: "",
+    bio: "",
+    url: "",
+    introAudio: "",
+    profilePhoto: "",
+    private: isPrivateParam,
+    followers: 0,
+    following: 0,
+    posts: 0,
   };
+  const safeProfile = profile ?? fallbackUser;
+  const viewedUser = {
+    ...fallbackUser,
+    ...safeProfile,
+    username: viewedUsername || safeProfile.username || "user",
+    isPrivate:
+      typeof safeProfile.private === "boolean"
+        ? safeProfile.private
+        : isPrivateParam,
+  };
+  const followingCount =
+    (safeProfile as { followings?: number }).followings ??
+    safeProfile.following ??
+    0;
+  const normalizeAssetUrl = (url?: string) => {
+    if (!url) return "";
+    if (/^https?:\/\//i.test(url)) return url;
+    if (!backend_url) return url;
+    const base = backend_url.replace(/\/+$/, "");
+    const path = url.startsWith("/") ? url : `/${url}`;
+    return `${base}${path}`;
+  };
+  const profilePhotoSrc =
+    normalizeAssetUrl(viewedUser.profilePhoto) ||
+    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop";
+  const introAudioSrc = normalizeAssetUrl(viewedUser.introAudio);
+  const liveItems: GridItem[] = posts
+    .map((post, index) => {
+      const img = post.post?.[0];
+      return img
+        ? {
+            id: post._id ?? post.id ?? `post-${index}`,
+            img: normalizeAssetUrl(img),
+            likes: post.likesCount ?? 0,
+            comments: post.commentsCount ?? 0,
+          }
+        : null;
+    })
+    .filter((item): item is GridItem => item !== null);
+  const gridItems = liveItems;
+  const postCount = liveItems.length ? liveItems.length : viewedUser.posts ?? 0;
+  const profileUrl = viewedUser.url?.trim() || "";
+  const profileHref = profileUrl
+    ? /^https?:\/\//i.test(profileUrl)
+      ? profileUrl
+      : `https://${profileUrl}`
+    : "";
+
   const isLocked = viewedUser.isPrivate && !isFollowing && !isCurrentUser;
   const followersLink = viewedUsername
     ? `/followers?user=${encodeURIComponent(
@@ -98,8 +163,8 @@ const Profile = () => {
 
           <div className="relative flex flex-col lg:flex-row gap-6 lg:items-center">
             <img
-              src={viewedUser.avatar}
-              alt={viewedUser.name}
+              src={profilePhotoSrc}
+              alt={viewedUser.name || viewedUser.username}
               className="w-28 h-28 md:w-36 md:h-36 rounded-full object-cover border border-white/80 shadow-md shrink-0"
             />
 
@@ -188,21 +253,23 @@ const Profile = () => {
               {!isLocked && (
                 <div className="mt-4 flex flex-wrap gap-4 text-sm text-[#1A1A1A]">
                   <div className="flex gap-1.5">
-                    <span className="font-bold">{viewedUser.posts}</span>
+                    <span className="font-bold">{postCount}</span>
                     <span className="text-gray-600">posts</span>
                   </div>
                   <Link
                     to={followersLink}
                     className="flex gap-1.5 cursor-pointer hover:underline"
                   >
-                    <span className="font-bold">{viewedUser.followers}</span>
+                    <span className="font-bold">
+                      {viewedUser.followers ?? 0}
+                    </span>
                     <span className="text-gray-600">followers</span>
                   </Link>
                   <Link
                     to={followingLink}
                     className="flex gap-1.5 cursor-pointer hover:underline"
                   >
-                    <span className="font-bold">{viewedUser.following}</span>
+                    <span className="font-bold">{followingCount}</span>
                     <span className="text-gray-600">following</span>
                   </Link>
                 </div>
@@ -213,29 +280,26 @@ const Profile = () => {
                   {viewedUser.name}
                 </span>
                 <p className="whitespace-pre-line mb-2">{viewedUser.bio}</p>
-                <a
-                  href={`https://${viewedUser.link}`}
-                  className="text-[#1E4F7A] font-semibold hover:underline"
-                >
-                  {viewedUser.link}
-                </a>
+                {profileHref ? (
+                  <a
+                    href={profileHref}
+                    className="text-[#1E4F7A] font-semibold hover:underline"
+                  >
+                    {viewedUser.url}
+                  </a>
+                ) : null}
               </div>
 
-              {!isLocked && viewedUser.introAudioUrl && (
+              {!isLocked && introAudioSrc && (
                 <div className="mt-4 rounded-2xl border border-[#E6EEF5] bg-white/90 p-4 shadow-sm">
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
                     <span className="font-semibold text-[#1E4F7A]">
                       Intro audio
                     </span>
-                    <span>{viewedUser.introAudioDuration}</span>
                   </div>
-                  <audio
-                    controls
-                    src={viewedUser.introAudioUrl}
-                    className="w-full h-9"
-                  />
+                  <audio controls src={introAudioSrc} className="w-full h-9" />
                   <p className="mt-2 text-xs text-[#4B6B88]">
-                    Set from Settings → Intro audio
+                    Set from Settings {"->"} Intro audio
                   </p>
                 </div>
               )}
@@ -269,29 +333,35 @@ const Profile = () => {
             </h3>
 
             <div className="grid grid-cols-3 gap-1 sm:gap-4 mt-6">
-              {mockPosts.map((post) => (
-                <div
-                  key={post.id}
-                  className="relative aspect-square group cursor-pointer bg-gray-100 overflow-hidden rounded-xl"
-                >
-                  <img
-                    src={post.img}
-                    alt="Post"
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
+              {gridItems.length === 0 ? (
+                <div className="col-span-3 text-center text-sm text-[#4B6B88]">
+                  No posts yet.
+                </div>
+              ) : (
+                gridItems.map((post) => (
+                  <div
+                    key={post.id}
+                    className="relative aspect-square group cursor-pointer bg-gray-100 overflow-hidden rounded-xl"
+                  >
+                    <img
+                      src={post.img}
+                      alt="Post"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
 
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-6">
-                    <div className="flex items-center gap-2 text-white font-bold text-lg">
-                      <Heart className="w-6 h-6 fill-white" />
-                      <span>{post.likes}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-white font-bold text-lg">
-                      <MessageCircle className="w-6 h-6 fill-white" />
-                      <span>{post.comments}</span>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-6">
+                      <div className="flex items-center gap-2 text-white font-bold text-lg">
+                        <Heart className="w-6 h-6 fill-white" />
+                        <span>{post.likes}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-white font-bold text-lg">
+                        <MessageCircle className="w-6 h-6 fill-white" />
+                        <span>{post.comments}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}

@@ -16,6 +16,8 @@ const Settings = () => {
   const [isPasswordUpdating, setIsPasswordUpdating] = useState(false);
   const [isPrivacyUpdating, setIsPrivacyUpdating] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+  const [isIntroSaving, setIsIntroSaving] = useState(false);
+  const [isIntroRemoving, setIsIntroRemoving] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [passwordForm, setPasswordForm] = useState({
@@ -287,6 +289,84 @@ const Settings = () => {
       setIsPhotoUploading(false);
     }
   }
+  async function handleIntroAudioSave(file: File) {
+    if (!token) {
+      toast.error("Please login to update your intro audio.");
+      return false;
+    }
+    setIsIntroSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append("audio", file);
+      const res = await fetch(`${backend_url}/profile/intro-audio`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const updated = data?.data?.userbio;
+        if (updated) {
+          setBio((prev) => ({
+            ...prev,
+            ...updated,
+          }));
+        }
+        toast.success(data?.message ?? "Intro audio saved.");
+        return true;
+      }
+      toast.error(data?.message ?? "Failed to save intro audio.");
+      return false;
+    } catch (error) {
+      console.log(error);
+      toast.error("Failed to save intro audio.");
+      return false;
+    } finally {
+      setIsIntroSaving(false);
+    }
+  }
+  async function handleIntroAudioRemove() {
+    if (!token) {
+      toast.error("Please login to update your intro audio.");
+      return false;
+    }
+    setIsIntroRemoving(true);
+    try {
+      const res = await fetch(`${backend_url}/profile/intro-audio`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const updated = data?.data?.userbio;
+        if (updated) {
+          setBio((prev) => ({
+            ...prev,
+            ...updated,
+          }));
+        } else {
+          setBio((prev) => ({
+            ...prev,
+            introAudio: "",
+          }));
+        }
+        toast.success(data?.message ?? "Intro audio removed.");
+        return true;
+      }
+      toast.error(data?.message ?? "Failed to remove intro audio.");
+      return false;
+    } catch (error) {
+      console.log(error);
+      toast.error("Failed to remove intro audio.");
+      return false;
+    } finally {
+      setIsIntroRemoving(false);
+    }
+  }
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
       <div className="w-full sm:w-64 shrink-0">
@@ -327,7 +407,13 @@ const Settings = () => {
               onToggle={handlePrivacyToggle}
               isLoading={isPrivacyUpdating}
             />
-            <IntroAudioCard />
+            <IntroAudioCard
+              user={bio}
+              isSaving={isIntroSaving}
+              isRemoving={isIntroRemoving}
+              onSave={handleIntroAudioSave}
+              onRemove={handleIntroAudioRemove}
+            />
           </div>
         </div>
       </div>

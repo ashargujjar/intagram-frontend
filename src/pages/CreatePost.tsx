@@ -7,12 +7,76 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ImageIcon, X, Mic, Square } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { ImageIcon, X, Mic, Square, Loader2 } from "lucide-react";
 import Nav from "@/components/Nav";
+import { useState } from "react";
+import { toast } from "react-toastify";
 
 const CreatePost = () => {
+  const [text, setText] = useState<string>("");
+  const [photho, setPhoto] = useState<File[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newFiles = Array.from(e.target.files || []);
+
+    setPhoto((prev) => {
+      const combined = [...prev, ...newFiles];
+      return combined.slice(0, 3); // max 3
+    });
+  };
+  type indexInput = string | number;
+  const handleRemove = (index: indexInput) => {
+    setPhoto((prev) => prev.filter((_, ind) => ind !== index));
+  };
+  const token = localStorage.getItem("RabtaLtoken");
+
+  async function handleSubmit(e: React.MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    if (loading) return;
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("text", text);
+
+      if (photho.length === 0) {
+        toast.error("No photo selected!");
+        toast.error("Please upload at least one picture");
+        return;
+      }
+
+      photho.forEach((p) => {
+        formData.append("images", p);
+      });
+
+      const backend_url = import.meta.env.VITE_BACKEND_URL;
+      if (!backend_url) {
+        throw new Error("Backend URL is not configured.");
+      }
+
+      const res = await fetch(`${backend_url}/photo`, {
+        method: "POST",
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || "Failed to create post.");
+      }
+
+      const data = await res.json();
+      toast.success(data.message || "Post uploaded successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error(
+        err instanceof Error ? err.message : "Something went wrong.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
       <div className="w-full sm:w-64 shrink-0">
@@ -49,43 +113,50 @@ const CreatePost = () => {
 
           <CardContent className="p-6">
             <div className="flex flex-col gap-6">
-              <Field>
-                <FieldLabel
-                  htmlFor="title"
-                  className="text-[#1E4F7A] font-medium mb-1.5 block"
-                >
-                  Title
-                </FieldLabel>
-                <Input
-                  id="title"
-                  type="text"
-                  placeholder="Enter your Title"
-                  className="focus-visible:ring-[#1E4F7A] p-4 bg-white"
-                />
-              </Field>
-
               <div className="flex flex-col gap-4">
                 <Textarea
                   placeholder="What's on your mind?"
+                  maxLength={200}
+                  value={text}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                    setText(e.target.value);
+                  }}
                   className="min-h-[120px] resize-none text-base p-4 focus-visible:ring-[#1E4F7A] bg-white"
                 />
 
                 <div className="flex flex-wrap gap-3 mt-2">
-                  <div className="relative w-24 h-24 group">
-                    <img
-                      src="https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?q=80&w=200&auto=format&fit=crop"
-                      alt="Mock Preview"
-                      className="w-full h-full object-cover rounded-md border border-gray-200"
-                    />
-                    <button className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md transition-colors cursor-pointer">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
+                  {photho.map((file, index) => {
+                    return (
+                      <div className="relative w-24 h-24 group" key={index}>
+                        <img
+                          src={URL.createObjectURL(file)}
+                          className="w-full h-full object-cover rounded-md border border-gray-200"
+                        />
+                        <button
+                          className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md transition-colors cursor-pointer"
+                          onClick={() => {
+                            handleRemove(index);
+                          }}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer hover:text-[#1E4F7A] transition-colors w-max mt-2">
                   <ImageIcon className="w-5 h-5" />
-                  <span className="font-medium">Add Photo</span>
+                  <label className="font-medium cursor-pointer">
+                    Add Photo
+                    <input
+                      onChange={handleFiles}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      accept=".jpg,.png,.jpeg"
+                    />
+                  </label>
                 </div>
 
                 {/* Audio Story Track (UI only) */}
@@ -102,27 +173,39 @@ const CreatePost = () => {
                       <Square className="w-4 h-4" />
                       Stop
                     </button>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <div className="w-24 h-2 rounded-full bg-gray-200 overflow-hidden">
-                      <div className="h-full w-1/3 bg-[#1E4F7A]" />
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <div className="w-24 h-2 rounded-full bg-gray-200 overflow-hidden">
+                        <div className="h-full w-1/3 bg-[#1E4F7A]" />
+                      </div>
+                      0:04 / 0:10
                     </div>
-                    0:04 / 0:10
+                    <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E4F7A] text-white text-xs font-semibold hover:bg-[#143A5A] transition">
+                      Add audio
+                    </button>
+                    <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition">
+                      Cancel audio
+                    </button>
                   </div>
-                  <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E4F7A] text-white text-xs font-semibold hover:bg-[#143A5A] transition">
-                    Add audio
-                  </button>
-                  <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition">
-                    Cancel audio
-                  </button>
                 </div>
-              </div>
               </div>
             </div>
           </CardContent>
 
           <CardFooter className="flex justify-end border-t border-[#E6EEF5] bg-[#F6FBFF] p-4">
-            <Button className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white transition-colors px-8 py-2 rounded-full cursor-pointer">
-              Post
+            <Button
+              className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white transition-colors px-8 py-2 rounded-full inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={handleSubmit}
+              disabled={loading}
+              aria-busy={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Posting...
+                </>
+              ) : (
+                "Post"
+              )}
             </Button>
           </CardFooter>
         </Card>
