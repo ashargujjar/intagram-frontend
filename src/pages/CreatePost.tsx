@@ -11,11 +11,26 @@ import { ImageIcon, X, Mic, Square, Loader2 } from "lucide-react";
 import Nav from "@/components/Nav";
 import { useState } from "react";
 import { toast } from "react-toastify";
+import { formatTime, useAudioRecorder } from "@/lib/useAudioRecorder";
 
 const CreatePost = () => {
   const [text, setText] = useState<string>("");
   const [photho, setPhoto] = useState<File[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const {
+    maxDuration,
+    isRecording,
+    recordedSeconds,
+    previewUrl,
+    recordedBlob,
+    error: audioError,
+    activeSeconds,
+    progress,
+    startRecording,
+    stopRecording,
+    clearRecording,
+    createFile,
+  } = useAudioRecorder({ maxSeconds: 10 });
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(e.target.files || []);
 
@@ -41,12 +56,19 @@ const CreatePost = () => {
       if (photho.length === 0) {
         toast.error("No photo selected!");
         toast.error("Please upload at least one picture");
+        setLoading(false);
         return;
       }
 
       photho.forEach((p) => {
         formData.append("images", p);
       });
+      if (recordedBlob) {
+        const audioFile = createFile("post-audio");
+        if (audioFile) {
+          formData.append("audio", audioFile);
+        }
+      }
 
       const backend_url = import.meta.env.VITE_BACKEND_URL;
       if (!backend_url) {
@@ -68,6 +90,7 @@ const CreatePost = () => {
 
       const data = await res.json();
       toast.success(data.message || "Post uploaded successfully");
+      clearRecording();
     } catch (err) {
       console.error(err);
       toast.error(
@@ -159,33 +182,73 @@ const CreatePost = () => {
                   </label>
                 </div>
 
-                {/* Audio Story Track (UI only) */}
+                {/* Audio Story Track */}
                 <div className="mt-4 rounded-2xl border border-[#E6EEF5] bg-[#F6FBFF] p-4">
                   <div className="text-xs text-gray-500 font-medium mb-2">
-                    Story audio track (max 10 seconds)
+                    Story audio track (max {maxDuration} seconds)
                   </div>
+                  {audioError ? (
+                    <div className="mb-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">
+                      {audioError}
+                    </div>
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-white/80 transition">
+                    <button
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-white/80 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      type="button"
+                      onClick={startRecording}
+                      disabled={isRecording || loading}
+                    >
                       <Mic className="w-4 h-4" />
-                      Record
+                      {recordedBlob ? "Re-record" : "Record"}
                     </button>
-                    <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition">
+                    <button
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      type="button"
+                      onClick={stopRecording}
+                      disabled={!isRecording}
+                    >
                       <Square className="w-4 h-4" />
                       Stop
                     </button>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <div className="w-24 h-2 rounded-full bg-gray-200 overflow-hidden">
-                        <div className="h-full w-1/3 bg-[#1E4F7A]" />
+                        <div
+                          className="h-full bg-[#1E4F7A] transition-all"
+                          style={{ width: `${progress * 100}%` }}
+                        />
                       </div>
-                      0:04 / 0:10
+                      {formatTime(activeSeconds)} / {formatTime(maxDuration)}
                     </div>
-                    <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E4F7A] text-white text-xs font-semibold hover:bg-[#143A5A] transition">
-                      Add audio
+                    <button
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E4F7A] text-white text-xs font-semibold hover:bg-[#143A5A] transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      type="button"
+                      disabled={!recordedBlob}
+                    >
+                      {recordedBlob ? "Audio ready" : "Add audio"}
                     </button>
-                    <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition">
+                    <button
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      type="button"
+                      onClick={clearRecording}
+                      disabled={!previewUrl && !recordedBlob}
+                    >
                       Cancel audio
                     </button>
                   </div>
+                  {previewUrl ? (
+                    <div className="mt-3 rounded-2xl border border-[#E6EEF5] bg-white/90 p-4 shadow-sm">
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                        <span className="font-semibold text-[#1E4F7A]">
+                          Audio preview
+                        </span>
+                        {recordedSeconds ? (
+                          <span>{formatTime(recordedSeconds)}</span>
+                        ) : null}
+                      </div>
+                      <audio controls src={previewUrl} className="w-full h-9" />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -193,7 +256,7 @@ const CreatePost = () => {
 
           <CardFooter className="flex justify-end border-t border-[#E6EEF5] bg-[#F6FBFF] p-4">
             <Button
-              className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white transition-colors px-8 py-2 rounded-full inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white transition-colors px-8 py-2 rounded-full inline-flex items-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               onClick={handleSubmit}
               disabled={loading}
               aria-busy={loading}

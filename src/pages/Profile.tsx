@@ -9,15 +9,20 @@ type PhotoPost = {
   _id?: string;
   id?: string;
   post?: string[];
+  descAudio?: string;
+  caption?: string;
   likesCount?: number;
   commentsCount?: number;
 };
 
 type GridItem = {
   id: string | number;
+  postId: string | number;
   img: string;
   likes: number;
   comments: number;
+  caption?: string;
+  audio?: string;
 };
 
 const Profile = () => {
@@ -114,21 +119,23 @@ const Profile = () => {
     normalizeAssetUrl(viewedUser.profilePhoto) ||
     "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop";
   const introAudioSrc = normalizeAssetUrl(viewedUser.introAudio);
-  const liveItems: GridItem[] = posts
+  const gridItems: GridItem[] = posts
     .map((post, index) => {
+      const postId = post._id ?? post.id;
       const img = post.post?.[0];
-      return img
-        ? {
-            id: post._id ?? post.id ?? `post-${index}`,
-            img: normalizeAssetUrl(img),
-            likes: post.likesCount ?? 0,
-            comments: post.commentsCount ?? 0,
-          }
-        : null;
+      if (!postId || !img) return null;
+      return {
+        id: postId,
+        postId,
+        img: normalizeAssetUrl(img),
+        likes: post.likesCount ?? 0,
+        comments: post.commentsCount ?? 0,
+        caption: post.caption,
+        audio: normalizeAssetUrl(post.descAudio),
+      };
     })
     .filter((item): item is GridItem => item !== null);
-  const gridItems = liveItems;
-  const postCount = liveItems.length ? liveItems.length : viewedUser.posts ?? 0;
+  const postCount = gridItems.length ? gridItems.length : viewedUser.posts ?? 0;
   const profileUrl = viewedUser.url?.trim() || "";
   const profileHref = profileUrl
     ? /^https?:\/\//i.test(profileUrl)
@@ -339,8 +346,23 @@ const Profile = () => {
                 </div>
               ) : (
                 gridItems.map((post) => (
-                  <div
+                  <Link
                     key={post.id}
+                    to={`/post/${post.postId}`}
+                    state={{
+                      post: {
+                        id: post.postId,
+                        image: post.img,
+                        caption: post.caption,
+                        audio: post.audio,
+                        likes: post.likes,
+                        comments: post.comments,
+                      },
+                      author: {
+                        username: viewedUser.username,
+                        avatar: profilePhotoSrc,
+                      },
+                    }}
                     className="relative aspect-square group cursor-pointer bg-gray-100 overflow-hidden rounded-xl"
                   >
                     <img
@@ -359,7 +381,7 @@ const Profile = () => {
                         <span>{post.comments}</span>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>

@@ -10,6 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Mic, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Profileprop } from "./types";
+import {
+  formatTime,
+  useAudioRecorder,
+} from "@/lib/useAudioRecorder";
 
 type IntroAudioCardProps = {
   user?: Profileprop;
@@ -24,37 +28,6 @@ type IntroAudioCardProps = {
   onRemove?: () => Promise<boolean> | boolean;
 };
 
-const formatTime = (seconds: number) => {
-  const safeSeconds = Math.max(0, Math.floor(seconds));
-  const mins = Math.floor(safeSeconds / 60);
-  const secs = safeSeconds % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-};
-
-const getSupportedMimeType = () => {
-  if (typeof MediaRecorder === "undefined") {
-    return "";
-  }
-  const types = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/ogg;codecs=opus",
-    "audio/ogg",
-    "audio/mp4",
-  ];
-  return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
-};
-
-const getFileExtension = (mimeType: string) => {
-  if (mimeType.includes("ogg")) {
-    return "ogg";
-  }
-  if (mimeType.includes("mp4")) {
-    return "mp4";
-  }
-  return "webm";
-};
-
 const IntroAudioCard = ({
   user,
   maxSeconds = 10,
@@ -63,137 +36,43 @@ const IntroAudioCard = ({
   onSave,
   onRemove,
 }: IntroAudioCardProps) => {
-  const maxDuration = Math.min(Math.max(maxSeconds, 1), 60);
-  const [isRecording, setIsRecording] = useState(false);
-  const [elapsedMs, setElapsedMs] = useState(0);
-  const [recordedSeconds, setRecordedSeconds] = useState(0);
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const {
+    maxDuration,
+    isRecording,
+    recordedSeconds,
+    previewUrl,
+    recordedBlob,
+    error: recorderError,
+    activeSeconds,
+    progress,
+    startRecording,
+    stopRecording,
+    clearRecording,
+    createFile,
+  } = useAudioRecorder({ maxSeconds });
   const [localSavedUrl, setLocalSavedUrl] = useState("");
   const [error, setError] = useState("");
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const previewUrlRef = useRef<string>("");
   const savedUrlRef = useRef<string>("");
 
   const currentSavedUrl = user?.introAudio || localSavedUrl;
   const hasPreview = Boolean(previewUrl);
   const displayUrl = hasPreview ? previewUrl : currentSavedUrl;
-  const activeSeconds = isRecording
-    ? Math.ceil(elapsedMs / 1000)
-    : recordedSeconds;
-  const progress =
-    maxDuration > 0 ? Math.min(activeSeconds / maxDuration, 1) : 0;
   const canRemove = Boolean(localSavedUrl || (user?.introAudio && onRemove));
+  const displayError = error || recorderError;
 
-  const clearTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
-  const cleanupStream = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-  };
-
-  const clearPreview = () => {
-    if (previewUrl && previewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewUrl("");
-    setRecordedBlob(null);
-    setRecordedSeconds(0);
-    setElapsedMs(0);
-  };
-
-  const stopRecording = () => {
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state !== "recording") {
-      return;
-    }
-    const elapsed = Date.now() - startTimeRef.current;
-    const seconds = Math.min(
-      maxDuration,
-      Math.max(1, Math.round(elapsed / 1000)),
-    );
-    setRecordedSeconds(seconds);
-    setIsRecording(false);
-    clearTimer();
-    recorder.stop();
-    cleanupStream();
-  };
-
-  const startRecording = async () => {
-    try {
-      if (typeof MediaRecorder === "undefined") {
-        setError("Audio recording is not supported in this browser.");
-        return;
-      }
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setError("Microphone access is not available in this browser.");
-        return;
-      }
-      setError("");
-      clearPreview();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const mimeType = getSupportedMimeType();
-      const mediaRecorder = new MediaRecorder(
-        stream,
-        mimeType ? { mimeType } : undefined,
-      );
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      mediaRecorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data?.size) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: mediaRecorder.mimeType || "audio/webm",
-        });
-        setRecordedBlob(audioBlob);
-        const url = URL.createObjectURL(audioBlob);
-        setPreviewUrl(url);
-      };
-      mediaRecorder.onerror = () => {
-        setError("Recording failed. Please try again.");
-      };
-      mediaRecorder.start();
-      setIsRecording(true);
-      setElapsedMs(0);
-      startTimeRef.current = Date.now();
-      timerRef.current = setInterval(() => {
-        const elapsed = Date.now() - startTimeRef.current;
-        setElapsedMs(elapsed);
-        if (elapsed >= maxDuration * 1000) {
-          stopRecording();
-        }
-      }, 100);
-    } catch (err) {
-      console.error("Error accessing microphone:", err);
-      cleanupStream();
-      setError("Microphone access was blocked.");
-    }
+  const handleStartRecording = async () => {
+    setError("");
+    await startRecording();
   };
 
   const handleSave = async () => {
     if (!recordedBlob || !previewUrl) {
       return;
     }
-    const mimeType = recordedBlob.type || "audio/webm";
-    const extension = getFileExtension(mimeType);
-    const file = new File([recordedBlob], `intro-audio.${extension}`, {
-      type: mimeType,
-    });
+    const file = createFile("intro-audio");
+    if (!file) {
+      return;
+    }
     setError("");
     try {
       if (onSave) {
@@ -206,10 +85,7 @@ const IntroAudioCard = ({
         }
       }
       setLocalSavedUrl(previewUrl);
-      setRecordedBlob(null);
-      setRecordedSeconds(0);
-      setPreviewUrl("");
-      setElapsedMs(0);
+      clearRecording({ revokePreview: false });
     } catch (err) {
       console.error("Error saving intro audio:", err);
       setError("Failed to save intro audio. Please try again.");
@@ -217,7 +93,7 @@ const IntroAudioCard = ({
   };
 
   const handleCancel = () => {
-    clearPreview();
+    clearRecording();
   };
 
   const handleRemove = async () => {
@@ -237,16 +113,12 @@ const IntroAudioCard = ({
         URL.revokeObjectURL(user.introAudio);
       }
       setLocalSavedUrl("");
-      clearPreview();
+      clearRecording();
     } catch (err) {
       console.error("Error removing intro audio:", err);
       setError("Failed to remove intro audio. Please try again.");
     }
   };
-
-  useEffect(() => {
-    previewUrlRef.current = previewUrl;
-  }, [previewUrl]);
 
   useEffect(() => {
     savedUrlRef.current = localSavedUrl;
@@ -266,11 +138,6 @@ const IntroAudioCard = ({
 
   useEffect(() => {
     return () => {
-      clearTimer();
-      cleanupStream();
-      if (previewUrlRef.current.startsWith("blob:")) {
-        URL.revokeObjectURL(previewUrlRef.current);
-      }
       if (savedUrlRef.current.startsWith("blob:")) {
         URL.revokeObjectURL(savedUrlRef.current);
       }
@@ -290,15 +157,15 @@ const IntroAudioCard = ({
         <div className="text-xs text-gray-500 font-medium">
           Max length: {maxDuration} seconds
         </div>
-        {error ? (
+        {displayError ? (
           <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">
-            {error}
+            {displayError}
           </div>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <button
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-[#F6FBFF] transition disabled:opacity-60 disabled:cursor-not-allowed"
-            onClick={startRecording}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-[#F6FBFF] transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={handleStartRecording}
             type="button"
             disabled={isRecording || isSaving}
           >
@@ -306,7 +173,7 @@ const IntroAudioCard = ({
             {hasPreview ? "Re-record" : "Record"}
           </button>
           <button
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             onClick={stopRecording}
             type="button"
             disabled={!isRecording}
@@ -351,7 +218,7 @@ const IntroAudioCard = ({
           </Button>
           <Button
             variant="outline"
-            className="border-gray-300 text-gray-600 hover:bg-gray-50"
+            className="border-gray-300 text-gray-600 hover:bg-gray-50 cursor-pointer"
             onClick={handleCancel}
             type="button"
             disabled={!hasPreview || isRecording}
@@ -360,7 +227,7 @@ const IntroAudioCard = ({
           </Button>
           <Button
             variant="outline"
-            className="border-red-200 text-red-600 hover:bg-red-50"
+            className="border-red-200 text-red-600 hover:bg-red-50 cursor-pointer"
             type="button"
             onClick={handleRemove}
             disabled={!canRemove || isRemoving}
