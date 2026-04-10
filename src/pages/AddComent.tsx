@@ -4,7 +4,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Heart, MoreHorizontal, Send, Mic, Square, Trash2 } from "lucide-react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { formatTime, useAudioRecorder } from "@/lib/useAudioRecorder";
@@ -72,6 +72,7 @@ const PostDetail = () => {
   const resolvedPostId = state?.post?.id ?? postId;
   const resolvedPostIdString = resolvedPostId ? String(resolvedPostId) : "";
   const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined;
+  const navigate = useNavigate();
   const [comment, setComment] = useState<CommentType>({
     postId: resolvedPostIdString,
     text: "",
@@ -83,6 +84,7 @@ const PostDetail = () => {
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [likeLoading, setLikeLoading] = useState<boolean>(false);
   const [isDeletingComment, setDeletingComment] = useState<boolean>(false);
+  const [isDeletingPost, setDeletingPost] = useState<boolean>(false);
   const [serverComments, setServerComments] = useState<ServerComment[]>([]);
   const [commentsCount, setCommentsCount] = useState<number | null>(null);
   const [isFetchingComments, setIsFetchingComments] = useState(false);
@@ -407,6 +409,44 @@ const PostDetail = () => {
     }
     setDeletingComment(false);
   }
+
+  const handleDeletePost = async () => {
+    if (isDeletingPost) return;
+    if (!resolvedPostIdString) {
+      toast.error("Post not found.");
+      return;
+    }
+    if (!backendUrl) {
+      toast.error("Backend URL is not configured.");
+      return;
+    }
+    const authToken = localStorage.getItem("RabtaLtoken");
+    if (!authToken) {
+      toast.error("Please login to delete.");
+      return;
+    }
+    setDeletingPost(true);
+    try {
+      const res = await fetch(`${backendUrl}/photo/${resolvedPostIdString}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data?.message ?? "Post deleted");
+        navigate("/profile");
+      } else {
+        toast.error(data?.message ?? "Unable to delete post.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong.");
+    } finally {
+      setDeletingPost(false);
+    }
+  };
   const authorAvatar = normalizeAssetUrl(state?.author?.avatar);
   const imageSrc = normalizeAssetUrl(state?.post?.image);
   const imageAlt = resolvedPostId ? `Post ${resolvedPostId}` : "Post content";
@@ -502,10 +542,12 @@ const PostDetail = () => {
               {canDeletePost ? (
                 <button
                   type="button"
+                  onClick={handleDeletePost}
+                  disabled={isDeletingPost}
                   className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-red-200 bg-white/90 px-3 py-1 text-xs font-semibold text-red-600 shadow-sm backdrop-blur transition hover:bg-red-50 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Delete
+                  {isDeletingPost ? "Deleting..." : "Delete"}
                 </button>
               ) : null}
             </div>

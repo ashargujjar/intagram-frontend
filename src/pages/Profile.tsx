@@ -68,7 +68,6 @@ const Profile = () => {
           method: "GET",
         });
         const data = await res.json();
-        console.log("data", data);
         if (res.ok) {
           setProfile(data?.data?.userbio ?? null);
           if (data?.data?.relation) {
@@ -104,11 +103,33 @@ const Profile = () => {
         console.error(error);
       }
     }
+    async function fetchPhotosByUsername(username: string) {
+      try {
+        const res = await fetch(
+          `${backend_url}/photo/${encodeURIComponent(username)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            method: "GET",
+          },
+        );
+        const data = await res.json();
+        if (res.ok) {
+          setPosts(Array.isArray(data?.data?.photos) ? data.data.photos : []);
+        } else {
+          setPosts([]);
+          console.log(data?.message ?? "Unable to load posts.");
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
     getBio();
     if (!viewedUsername) {
       fetchPhotos();
     } else {
-      setPosts([]);
+      fetchPhotosByUsername(viewedUsername);
     }
   }, [token, backend_url, viewedUsername]);
 

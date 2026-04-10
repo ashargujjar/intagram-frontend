@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { MessageSquareText, UserCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 type FollowRequestItem = {
   id: string;
@@ -130,46 +131,48 @@ const FriendRequests = () => {
                 key={request.id}
                 className="rounded-2xl border border-[#E6EEF5] bg-white/90 shadow-sm p-4 md:p-5"
               >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <Avatar className="w-12 h-12 border border-gray-200 shadow-sm">
-                      <AvatarImage
-                        src={
-                          normalizeAssetUrl(request.profilePhoto) ||
-                          defaultAvatar
-                        }
-                      />
-                      <AvatarFallback>
-                        {request.username?.[0]?.toUpperCase() || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-semibold text-[#0B2A43]">
-                        {request.name || request.username}
-                      </div>
-                      <div className="text-sm text-[#6B7280]">
-                        @{request.username}
+                <Link to={`/profile?user=${request.username}`}>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <Avatar className="w-12 h-12 border border-gray-200 shadow-sm">
+                        <AvatarImage
+                          src={
+                            normalizeAssetUrl(request.profilePhoto) ||
+                            defaultAvatar
+                          }
+                        />
+                        <AvatarFallback>
+                          {request.username?.[0]?.toUpperCase() || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-semibold text-[#0B2A43]">
+                          {request.name || request.username}
+                        </div>
+                        <div className="text-sm text-[#6B7280]">
+                          @{request.username}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-5 rounded-full cursor-pointer"
-                      onClick={() => handleAction(request.id, "confirm")}
-                    >
-                      <UserCheck className="w-4 h-4 mr-2" />
-                      Confirm
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-gray-300 text-gray-600 rounded-full"
-                      onClick={() => handleAction(request.id, "reject")}
-                    >
-                      Decline
-                    </Button>
-                  </div>
-                </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        className="bg-[#1E4F7A] hover:bg-[#143A5A] text-white px-5 rounded-full cursor-pointer"
+                        onClick={() => handleAction(request.id, "confirm")}
+                      >
+                        <UserCheck className="w-4 h-4 mr-2" />
+                        Confirm
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="border-gray-300 text-gray-600 rounded-full"
+                        onClick={() => handleAction(request.id, "reject")}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  </div>{" "}
+                </Link>
 
                 <div className="mt-4 rounded-xl border border-[#E6EEF5] bg-[#F6FBFF] p-3 text-sm text-[#4B6B88] flex items-start gap-2">
                   <MessageSquareText className="w-4 h-4 mt-0.5 text-[#1E4F7A]" />
