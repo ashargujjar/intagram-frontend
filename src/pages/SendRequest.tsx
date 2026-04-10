@@ -1,13 +1,7 @@
 ﻿import Nav from "@/components/Nav";
 import SendRequestHeader from "@/components/Sendrequest/SendRequestHeader";
-import RequestFormCard from "@/components/Sendrequest/RequestFormCard";
-import RequestActivityCard from "@/components/Sendrequest/RequestActivityCard";
 import RecentRequestsCard from "@/components/Sendrequest/RecentRequestsCard";
-import type {
-  RequestHistoryItem,
-  RequestStatus,
-} from "@/components/Sendrequest/types";
-import { useSearchParams } from "react-router-dom";
+import type { RequestHistoryItem } from "@/components/Sendrequest/types";
 
 const mockHistoryItems: RequestHistoryItem[] = [
   {
@@ -45,26 +39,6 @@ const mockHistoryItems: RequestHistoryItem[] = [
 ];
 
 const SendRequest = () => {
-  const [searchParams] = useSearchParams();
-  const requestedUser = searchParams.get("user") || "";
-
-  const statusCounts = mockHistoryItems.reduce(
-    (acc, item) => {
-      acc[item.status] = (acc[item.status] || 0) + 1;
-      return acc;
-    },
-    {
-      pending: 0,
-      approved: 0,
-      declined: 0,
-      canceled: 0,
-    } as Record<RequestStatus, number>,
-  );
-  const totalRequests = mockHistoryItems.length;
-  const approvedPercent = totalRequests
-    ? Math.round((statusCounts.approved / totalRequests) * 100)
-    : 0;
-
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
       <div className="w-full sm:w-64 shrink-0">
@@ -74,18 +48,8 @@ const SendRequest = () => {
       <div className="flex-1 mt-4 sm:mt-0 font-['Space_Grotesk']">
         <SendRequestHeader />
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="flex flex-col gap-6">
-            <RequestFormCard requestedUser={requestedUser} />
-          </div>
-
-          <aside className="flex flex-col gap-6">
-            <RequestActivityCard
-              statusCounts={statusCounts}
-              approvedPercent={approvedPercent}
-            />
-            <RecentRequestsCard items={mockHistoryItems} />
-          </aside>
+        <div className="mt-8">
+          <RecentRequestsCard items={mockHistoryItems} />
         </div>
       </div>
     </div>

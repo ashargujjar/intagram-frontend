@@ -35,18 +35,20 @@ const Profile = () => {
   const [posts, setPosts] = useState<PhotoPost[]>([]);
 
   useEffect(() => {
-    if (!token || viewedUsername || !backend_url) {
+    if (!token || !backend_url) {
       return;
     }
     async function getBio() {
       try {
-        const res = await fetch(`${backend_url}/bio`, {
+        const url = viewedUsername ? `/bio/${viewedUsername}` : "/bio";
+        const res = await fetch(`${backend_url}${url}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
           method: "GET",
         });
         const data = await res.json();
+        console.log("data", data);
         if (res.ok) {
           setProfile(data?.data?.userbio ?? null);
         } else {
@@ -66,6 +68,7 @@ const Profile = () => {
         });
         const data = await res.json();
         if (res.ok) {
+          console.log("data", data);
           setPosts(Array.isArray(data?.data?.photos) ? data.data.photos : []);
         } else {
           console.log(data?.message ?? "Unable to load posts.");
@@ -75,7 +78,11 @@ const Profile = () => {
       }
     }
     getBio();
-    fetchPhotos();
+    if (!viewedUsername) {
+      fetchPhotos();
+    } else {
+      setPosts([]);
+    }
   }, [token, backend_url, viewedUsername]);
 
   const isCurrentUser = !viewedUsername;
@@ -135,7 +142,9 @@ const Profile = () => {
       };
     })
     .filter((item): item is GridItem => item !== null);
-  const postCount = gridItems.length ? gridItems.length : viewedUser.posts ?? 0;
+  const postCount = gridItems.length
+    ? gridItems.length
+    : (viewedUser.posts ?? 0);
   const profileUrl = viewedUser.url?.trim() || "";
   const profileHref = profileUrl
     ? /^https?:\/\//i.test(profileUrl)
@@ -222,22 +231,14 @@ const Profile = () => {
                               viewedUser.username,
                             )}`}
                           >
-                            Request access
+                            Follow
                           </Link>
                         </Button>
                         <Button
                           asChild
                           variant="outline"
                           className="px-6 rounded-full font-semibold border-[#D6E2EC]"
-                        >
-                          <Link
-                            to={`/send-request?user=${encodeURIComponent(
-                              viewedUser.username,
-                            )}`}
-                          >
-                            Request with note
-                          </Link>
-                        </Button>
+                        ></Button>
                       </>
                     )}
 
@@ -257,12 +258,19 @@ const Profile = () => {
                 )}
               </div>
 
-              {!isLocked && (
-                <div className="mt-4 flex flex-wrap gap-4 text-sm text-[#1A1A1A]">
+              <div className="mt-4 flex flex-wrap gap-4 text-sm text-[#1A1A1A]">
+                <div className="flex gap-1.5">
+                  <span className="font-bold">{postCount}</span>
+                  <span className="text-gray-600">posts</span>
+                </div>
+                {isLocked ? (
                   <div className="flex gap-1.5">
-                    <span className="font-bold">{postCount}</span>
-                    <span className="text-gray-600">posts</span>
+                    <span className="font-bold">
+                      {viewedUser.followers ?? 0}
+                    </span>
+                    <span className="text-gray-600">followers</span>
                   </div>
+                ) : (
                   <Link
                     to={followersLink}
                     className="flex gap-1.5 cursor-pointer hover:underline"
@@ -272,6 +280,13 @@ const Profile = () => {
                     </span>
                     <span className="text-gray-600">followers</span>
                   </Link>
+                )}
+                {isLocked ? (
+                  <div className="flex gap-1.5">
+                    <span className="font-bold">{followingCount}</span>
+                    <span className="text-gray-600">following</span>
+                  </div>
+                ) : (
                   <Link
                     to={followingLink}
                     className="flex gap-1.5 cursor-pointer hover:underline"
@@ -279,8 +294,8 @@ const Profile = () => {
                     <span className="font-bold">{followingCount}</span>
                     <span className="text-gray-600">following</span>
                   </Link>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="mt-4 text-sm text-[#0B2A43]">
                 <span className="font-semibold block mb-1">

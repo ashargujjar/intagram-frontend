@@ -14,6 +14,7 @@ import { useRef } from "react";
 
 type ProfilePhotoCardProps = {
   user: Profileprop;
+  photoSrc?: string;
   previewUrl?: string | null;
   selectedFileName?: string;
   isUploading?: boolean;
@@ -25,6 +26,7 @@ type ProfilePhotoCardProps = {
 
 const ProfilePhotoCard = ({
   user,
+  photoSrc,
   previewUrl,
   selectedFileName,
   isUploading = false,
@@ -34,7 +36,7 @@ const ProfilePhotoCard = ({
   onRemove,
 }: ProfilePhotoCardProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const avatarSrc = previewUrl || user.profilePhoto || "";
+  const avatarSrc = previewUrl || photoSrc || user.profilePhoto || "";
   return (
     <Card className="w-full shadow-lg border-[#E6EEF5] bg-white/90 backdrop-blur rounded-2xl overflow-hidden">
       <CardHeader className="border-b border-[#E6EEF5] pb-4 bg-[#F6FBFF]">

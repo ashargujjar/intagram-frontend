@@ -32,9 +32,9 @@ const Nav = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // Later, you will clear your JWT token or LocalStorage here
+    localStorage.removeItem("RabtaLtoken");
     console.log("User logged out!");
-    // navigate("/login");
+    navigate("/login");
   };
 
   return (

@@ -1,38 +1,108 @@
-import Nav from "@/components/Nav";
+﻿import Nav from "@/components/Nav";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FaSearch } from "react-icons/fa";
 import { Link } from "react-router-dom";
-
-// 🛑 STATIC MOCK DATA - Replace this with your backend API data later
-const mockUsers = [
-  {
-    id: 1,
-    name: "Ali Khan",
-    username: "@alikhan99",
-    avatar: "https://i.pravatar.cc/150?u=ali",
-    isFollowing: false, // Not following yet
-    isPrivate: true,
-  },
-  {
-    id: 2,
-    name: "Sara Ahmed",
-    username: "@sara_designs",
-    avatar: "https://i.pravatar.cc/150?u=sara",
-    isFollowing: true, // Already following
-    isPrivate: false,
-  },
-  {
-    id: 3,
-    name: "Zainab Malik",
-    username: "@zainab.codes",
-    avatar: "https://i.pravatar.cc/150?u=zainab",
-    isFollowing: false,
-    isPrivate: true,
-  },
-];
+import { useEffect, useState } from "react";
+import { jwtDecode } from "jwt-decode";
+// import jwt_decode from "jwt-decode";
+type SearchUserItem = {
+  id: string;
+  username: string;
+  name?: string;
+  profilePhoto?: string;
+  private?: boolean;
+  followers?: number;
+  followings?: number;
+  posts?: number;
+};
+type TokenUser = {
+  id: string;
+  username: string;
+  email: string;
+};
 
 const Search = () => {
+  const token = localStorage.getItem("RabtaLtoken");
+
+  const [username, setUsername] = useState<string>("");
+  const [users, setFoundUsers] = useState<SearchUserItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [currUser, setCurUser] = useState<TokenUser>();
+  const backend_url = import.meta.env.VITE_BACKEND_URL;
+
+  useEffect(() => {
+    if (token) {
+      const decoded: any = jwtDecode(token);
+      setCurUser(decoded);
+      console.log(decoded);
+    }
+    const term = username.trim();
+    if (!backend_url || !token) {
+      setFoundUsers([]);
+      setError("");
+      return;
+    }
+    if (!term) {
+      setFoundUsers([]);
+      setError("");
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await fetch(`${backend_url}/user`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ username: term }),
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setFoundUsers([]);
+          setError(
+            typeof data?.message === "string"
+              ? data.message
+              : "Unable to search users.",
+          );
+        } else {
+          const list = Array.isArray(data?.data?.users) ? data.data.users : [];
+          console.log(list);
+          setFoundUsers(list);
+        }
+      } catch (err: any) {
+        if (err?.name !== "AbortError") {
+          setError("Unable to search users.");
+          setFoundUsers([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [username, backend_url, token]);
+
+  const normalizeAssetUrl = (url?: string) => {
+    if (!url) return "";
+    if (/^https?:\/\//i.test(url)) return url;
+    if (!backend_url) return url;
+    const base = backend_url.replace(/\/+$/, "");
+    const path = url.startsWith("/") ? url : `/${url}`;
+    return `${base}${path}`;
+  };
+  const defaultAvatar =
+    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop";
+  const hasQuery = username.trim().length > 0;
+
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
       {/* Sidebar Navigation */}
@@ -63,6 +133,9 @@ const Search = () => {
                 <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input
                   type="text"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setUsername(e.target.value);
+                  }}
                   placeholder="Search for users..."
                   className="pl-12 py-5 text-base rounded-full bg-white shadow-sm border-gray-100 focus-visible:ring-[#1E4F7A]"
                 />
@@ -75,74 +148,91 @@ const Search = () => {
           <h3 className="text-xs font-['Spline_Sans_Mono'] text-[#6B7280] mb-4 uppercase tracking-wider">
             Suggested Users
           </h3>
-
-          <div className="flex flex-col gap-3">
-            {mockUsers.map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center justify-between p-4 bg-white/90 rounded-2xl border border-[#E6EEF5] shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center gap-4 hover:cursor-pointer">
-                  <Link
-                    to={`/profile?user=${encodeURIComponent(
-                      user.username,
-                    )}&private=${user.isPrivate ? "1" : "0"}`}
-                    className="flex items-center gap-4"
+          {loading && <p className="text-sm text-[#4B6B88]">Searching...</p>}
+          {!loading && error && <p className="text-sm text-red-600">{error}</p>}
+          {!loading && !error && users.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {users.map((user) => {
+                const displayUsername = user.username.startsWith("@")
+                  ? user.username
+                  : `@${user.username}`;
+                const isPrivate = Boolean(user.private);
+                const avatarSrc =
+                  normalizeAssetUrl(user.profilePhoto) || defaultAvatar;
+                return (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-4 bg-white/90 rounded-2xl border border-[#E6EEF5] shadow-sm hover:shadow-md transition-shadow"
                   >
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-12 h-12 rounded-full object-cover border border-gray-200"
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-bold text-[#1A1A1A] leading-tight hover:underline">
-                        {user.name}
-                      </span>
-                      <span className="text-sm text-[#6B7280]">
-                        {user.username}
-                      </span>
+                    {currUser?.username === user.username ? (
+                      <div className="flex items-center gap-4 hover:cursor-pointer">
+                        <Link to="/profile" className="flex items-center gap-4">
+                          <img
+                            src={avatarSrc}
+                            alt={user.name || displayUsername}
+                            className="w-12 h-12 rounded-full object-cover border border-gray-200"
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-bold text-[#1A1A1A] leading-tight hover:underline">
+                              {user.name || displayUsername}
+                            </span>
+                            <span className="text-sm text-[#6B7280]">
+                              {displayUsername}
+                            </span>
+                          </div>
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-4 hover:cursor-pointer">
+                        <Link
+                          to={`/profile?user=${encodeURIComponent(
+                            user.username,
+                          )}&private=${isPrivate ? "1" : "0"}`}
+                          className="flex items-center gap-4"
+                        >
+                          <img
+                            src={avatarSrc}
+                            alt={user.name || displayUsername}
+                            className="w-12 h-12 rounded-full object-cover border border-gray-200"
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-bold text-[#1A1A1A] leading-tight hover:underline">
+                              {user.name || displayUsername}
+                            </span>
+                            <span className="text-sm text-[#6B7280]">
+                              {displayUsername}
+                            </span>
+                          </div>
+                        </Link>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      {currUser?.username === user.username ? (
+                        <Link to="/profile">
+                          <Button className="px-6 rounded-full font-medium transition-all cursor-pointer bg-[#1E4F7A] text-white hover:bg-[#143A5A]">
+                            Profile
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button className="px-6 rounded-full font-medium transition-all cursor-pointer bg-[#1E4F7A] text-white hover:bg-[#143A5A]">
+                          Follow
+                        </Button>
+                      )}
                     </div>
-                  </Link>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {!user.isPrivate && (
-                    <Button
-                      className={`px-6 rounded-full font-medium transition-all cursor-pointer ${
-                        user.isFollowing
-                          ? "bg-gray-100 text-[#1A1A1A] hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-transparent"
-                          : "bg-[#1E4F7A] text-white hover:bg-[#143A5A]"
-                      }`}
-                    >
-                      {user.isFollowing ? "Following" : "Follow"}
-                    </Button>
-                  )}
-
-                  {user.isPrivate && !user.isFollowing && (
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="border-gray-300 text-gray-600 rounded-full"
-                    >
-                      <Link
-                        to={`/send-request?user=${encodeURIComponent(
-                          user.username,
-                        )}`}
-                      >
-                        Request access
-                      </Link>
-                    </Button>
-                  )}
-
-                  {user.isPrivate && user.isFollowing && (
-                    <Button className="bg-gray-100 text-[#1A1A1A] rounded-full">
-                      Following
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          {!loading && !error && hasQuery && users.length === 0 && (
+            <p className="text-sm text-[#4B6B88]">No users found.</p>
+          )}
+          {!loading && !error && !hasQuery && (
+            <p className="text-sm text-[#4B6B88]">
+              Start typing to search for users.
+            </p>
+          )}
         </div>
       </div>
     </div>

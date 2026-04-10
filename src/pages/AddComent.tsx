@@ -3,8 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Heart, MoreHorizontal, Send, Mic, Square } from "lucide-react";
-import { useLocation, useParams } from "react-router-dom";
+import { Heart, MoreHorizontal, Send, Mic, Square, Trash2 } from "lucide-react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { formatTime, useAudioRecorder } from "@/lib/useAudioRecorder";
@@ -77,7 +77,12 @@ const PostDetail = () => {
     text: "",
   });
   const [loading, setLoading] = useState<boolean>(false);
-  const [isPostDeleted, setIsPostDeleted] = useState(false);
+  const initialLikes =
+    typeof state?.post?.likes === "number" ? state.post.likes : 0;
+  const [likeCount, setLikeCount] = useState<number>(initialLikes);
+  const [isLiked, setIsLiked] = useState<boolean>(false);
+  const [likeLoading, setLikeLoading] = useState<boolean>(false);
+  const [isDeletingComment, setDeletingComment] = useState<boolean>(false);
   const [serverComments, setServerComments] = useState<ServerComment[]>([]);
   const [commentsCount, setCommentsCount] = useState<number | null>(null);
   const [isFetchingComments, setIsFetchingComments] = useState(false);
@@ -135,6 +140,16 @@ const PostDetail = () => {
                 ? post.commentsCount
                 : post.comments.length,
             );
+            if (typeof post?.likesCount === "number") {
+              setLikeCount(post.likesCount);
+            }
+            if (Array.isArray(post?.likedBy) && currentUserId) {
+              setIsLiked(
+                post.likedBy.some(
+                  (id: string) => String(id) === String(currentUserId),
+                ),
+              );
+            }
           }
         } else {
           console.log(data?.message ?? "Unable to load comments.");
@@ -210,6 +225,7 @@ const PostDetail = () => {
           Authorization: `Bearer ${token}`,
         },
       });
+
       const data = await res.json();
       if (res.ok) {
         toast.success(data?.message ?? "Comment uploaded successfully");
@@ -246,6 +262,51 @@ const PostDetail = () => {
     }
   }
 
+  const handleToggleLike = async () => {
+    if (likeLoading) return;
+    if (!resolvedPostIdString) {
+      toast.error("Post not found.");
+      return;
+    }
+    if (!backendUrl) {
+      toast.error("Backend URL is not configured.");
+      return;
+    }
+    const authToken = localStorage.getItem("RabtaLtoken");
+    if (!authToken) {
+      toast.error("Please login to like the post.");
+      return;
+    }
+    setLikeLoading(true);
+    try {
+      const endpoint = isLiked ? "dislike" : "like";
+      const res = await fetch(`${backendUrl}/${endpoint}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ postId: resolvedPostIdString }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const nextLikes =
+          typeof data?.data?.likesCount === "number"
+            ? data.data.likesCount
+            : Math.max(0, likeCount + (isLiked ? -1 : 1));
+        setLikeCount(nextLikes);
+        setIsLiked(!isLiked);
+      } else {
+        toast.error(data?.message ?? "Unable to update like.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong.");
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
   const normalizeAssetUrl = (url?: string) => {
     if (!url) return "";
     if (/^https?:\/\//i.test(url)) return url;
@@ -258,7 +319,6 @@ const PostDetail = () => {
 
   const formatLikes = (value?: number) => {
     if (typeof value !== "number") return "";
-
     return `${value}`;
   };
 
@@ -267,12 +327,91 @@ const PostDetail = () => {
       ? state.author.username
       : `@${state.author.username}`
     : "@user";
+  const token = localStorage.getItem("RabtaLtoken");
+  const getTokenPayload = (jwt?: string | null) => {
+    if (!jwt) return "";
+    try {
+      const payload = jwt.split(".")[1];
+      if (!payload) return "";
+      const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = base64.padEnd(
+        base64.length + ((4 - (base64.length % 4)) % 4),
+        "=",
+      );
+      const decoded = atob(padded);
+      const data = JSON.parse(decoded) as {
+        username?: string;
+        id?: string;
+        _id?: string;
+      };
+      return {
+        username: data?.username ?? "",
+        id: data?.id ?? data?._id ?? "",
+      };
+    } catch {
+      return { username: "", id: "" };
+    }
+  };
+  const normalizeUsername = (value?: string) =>
+    (value ?? "").replace("@", "").toLowerCase();
+  const tokenPayload = getTokenPayload(token);
+  const currentUsername = normalizeUsername(tokenPayload?.username);
+  const currentUserId = tokenPayload?.id ?? "";
+  const authorUsernameNormalized = normalizeUsername(authorUsername);
+  const canDeletePost =
+    Boolean(currentUsername) &&
+    Boolean(authorUsernameNormalized) &&
+    currentUsername === authorUsernameNormalized;
+  const canDeleteComment = (commentItem: ServerComment) => {
+    const user = getCommentUser(commentItem);
+    if (!user) return false;
+    if (typeof user === "string") {
+      return Boolean(currentUserId) && user === currentUserId;
+    }
+    if (user._id && currentUserId && String(user._id) === currentUserId) {
+      return true;
+    }
+    if (user.username && currentUsername) {
+      return normalizeUsername(user.username) === currentUsername;
+    }
+    return false;
+  };
+  async function deleteComment(commentId: string) {
+    setDeletingComment(true);
+    const toDelete: {
+      commentId: string;
+      postId: string;
+    } = {
+      commentId: commentId,
+      postId: String(postId),
+    };
+
+    const token = localStorage.getItem("RabtaLtoken");
+    const res = await fetch(`${backendUrl}/comment`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(toDelete),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      toast.success("comment deleted suceessfully");
+      console.log(data?.data.comments);
+      setServerComments(data?.data.comments);
+      setCommentsCount(data?.data.comments.length);
+    } else {
+      toast.error(data.message);
+    }
+    setDeletingComment(false);
+  }
   const authorAvatar = normalizeAssetUrl(state?.author?.avatar);
   const imageSrc = normalizeAssetUrl(state?.post?.image);
   const imageAlt = resolvedPostId ? `Post ${resolvedPostId}` : "Post content";
   const caption = state?.post?.caption || "";
-  const likesLabel =
-    typeof state?.post?.likes === "number" ? formatLikes(state.post.likes) : "";
+  const likesLabel = formatLikes(likeCount);
   const audioSrc = normalizeAssetUrl(state?.post?.audio);
   const commentsToRender = serverComments;
 
@@ -300,6 +439,7 @@ const PostDetail = () => {
     if (!user.username) return "@user";
     return user.username.startsWith("@") ? user.username : `@${user.username}`;
   };
+
   const getCommentAvatar = (
     user?:
       | string
@@ -318,23 +458,6 @@ const PostDetail = () => {
     authorUsername && authorUsername !== "@user"
       ? authorUsername.replace("@", "").charAt(0).toUpperCase()
       : "U";
-
-  const handleDeletePost = () => {
-    setIsPostDeleted(true);
-    toast.info("Post removed (frontend only).");
-  };
-
-  const handleDeleteComment = (commentId: string) => {
-    setServerComments((prev) =>
-      prev.filter((item, idx) => {
-        const id = item._id ?? item.commentData?._id ?? `comment-${idx}`;
-        return id !== commentId;
-      }),
-    );
-    setCommentsCount((prev) =>
-      typeof prev === "number" ? Math.max(prev - 1, 0) : prev,
-    );
-  };
 
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
@@ -362,20 +485,10 @@ const PostDetail = () => {
                   {authorUsername}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleDeletePost}
-                  disabled={isPostDeleted}
-                  className="text-xs font-semibold text-red-500 hover:text-red-600 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isPostDeleted ? "Deleted" : "Delete"}
-                </button>
-                <MoreHorizontal className="w-5 h-5 text-gray-500 cursor-pointer hover:text-[#1E4F7A]" />
-              </div>
+              <MoreHorizontal className="w-5 h-5 text-gray-500 cursor-pointer hover:text-[#1E4F7A]" />
             </div>
 
-            <div className="w-full aspect-square bg-black flex items-center justify-center overflow-hidden">
+            <div className="relative w-full aspect-square bg-black flex items-center justify-center overflow-hidden">
               {imageSrc ? (
                 <img
                   src={imageSrc}
@@ -385,11 +498,32 @@ const PostDetail = () => {
               ) : (
                 <div className="text-xs text-gray-400">No image available</div>
               )}
+
+              {canDeletePost ? (
+                <button
+                  type="button"
+                  className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-red-200 bg-white/90 px-3 py-1 text-xs font-semibold text-red-600 shadow-sm backdrop-blur transition hover:bg-red-50 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+              ) : null}
             </div>
 
             <div className="flex flex-col p-4 bg-white shrink-0">
               <div className="flex items-center gap-4 mb-3">
-                <Heart className="w-7 h-7 text-[#1A1A1A] cursor-pointer hover:text-[#F2A32C] hover:scale-110 transition-all duration-200" />
+                <Heart
+                  onClick={handleToggleLike}
+                  role="button"
+                  aria-pressed={isLiked}
+                  className={`w-7 h-7 transition-all duration-200 ${
+                    likeLoading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                  } ${
+                    isLiked
+                      ? "text-[#F2A32C] fill-[#F2A32C]"
+                      : "text-[#1A1A1A] hover:text-[#F2A32C] hover:scale-110"
+                  }`}
+                />
                 <Send className="w-7 h-7 text-[#1A1A1A] cursor-pointer hover:text-[#1E4F7A] hover:scale-110 transition-all duration-200" />
               </div>
               {likesLabel ? (
@@ -432,6 +566,32 @@ const PostDetail = () => {
               </h3>
             </div>
 
+            {commentsToRender.length > 0 ? (
+              <div className="px-4 pt-4 pb-3 border-b border-gray-100 bg-white">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[#1A1A1A]">
+                      AI Comment Summary
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Summarize the latest comments on this post.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full border border-[#1E4F7A]/30 bg-[#F6FBFF] px-4 py-1.5 text-xs font-semibold text-[#1E4F7A] shadow-sm transition hover:bg-white hover:text-[#143A5A] cursor-pointer"
+                  >
+                    Summarize comments
+                  </button>
+                </div>
+                <div className="mt-3 rounded-xl border border-dashed border-[#1E4F7A]/30 bg-[#F9FBFF] p-3">
+                  <p className="text-sm text-gray-500">
+                    Summary will appear here after you fetch it.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             {/* Scrollable Comments Area */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
               {isFetchingComments ? (
@@ -466,9 +626,16 @@ const PostDetail = () => {
 
                       <div className="flex flex-col w-full">
                         <div className="text-sm text-[#1A1A1A]">
-                          <span className="font-bold mr-2 hover:underline cursor-pointer">
+                          <Link
+                            to={
+                              handle == authorUsername
+                                ? `/profile`
+                                : `/profile?user=${handle}`
+                            }
+                            className="font-bold mr-2 hover:underline cursor-pointer"
+                          >
                             {handle}
-                          </span>
+                          </Link>
                           {commentText ? (
                             <span>{commentText}</span>
                           ) : commentAudio ? (
@@ -498,13 +665,19 @@ const PostDetail = () => {
                           <button className="hover:text-[#1E4F7A] transition-colors cursor-pointer font-bold">
                             Reply
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteComment(commentId)}
-                            className="text-red-500 hover:text-red-600 font-bold cursor-pointer"
-                          >
-                            Delete
-                          </button>
+                          {canDeleteComment(commentItem) ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                deleteComment(commentId);
+                              }}
+                              disabled={isDeletingComment}
+                              className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100 transition cursor-pointer"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              {isDeletingComment ? "..." : "Delete"}
+                            </button>
+                          ) : null}
                         </div>
                       </div>
 
@@ -551,21 +724,21 @@ const PostDetail = () => {
                   <span className="text-xs text-red-500">{audioError}</span>
                 ) : null}
                 <div className="flex items-center gap-2">
-                    <button
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-[#F6FBFF] transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                      onClick={startRecording}
-                      type="button"
-                      disabled={isRecording || loading}
-                    >
+                  <button
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-[#F6FBFF] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    onClick={startRecording}
+                    type="button"
+                    disabled={isRecording || loading}
+                  >
                     <Mic className="w-4 h-4" />
                     {audioPreviewUrl ? "Re-record" : "Record"}
                   </button>
-                    <button
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                      onClick={stopRecording}
-                      type="button"
-                      disabled={!isRecording}
-                    >
+                  <button
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    onClick={stopRecording}
+                    type="button"
+                    disabled={!isRecording}
+                  >
                     <Square className="w-4 h-4" />
                     Stop
                   </button>
@@ -579,20 +752,20 @@ const PostDetail = () => {
                   </div>
                   {formatTime(activeSeconds)} / {formatTime(maxAudioSeconds)}
                 </div>
-                    <button
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E4F7A] text-white text-xs font-semibold hover:bg-[#143A5A] transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                      type="button"
-                      onClick={handleCommentPost}
-                      disabled={loading || !recordedBlob}
-                    >
+                <button
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E4F7A] text-white text-xs font-semibold hover:bg-[#143A5A] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={handleCommentPost}
+                  disabled={loading || !recordedBlob}
+                >
                   Post audio
                 </button>
-                    <button
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                      type="button"
-                      onClick={clearRecording}
-                      disabled={!audioPreviewUrl && !recordedBlob}
-                    >
+                <button
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={clearRecording}
+                  disabled={!audioPreviewUrl && !recordedBlob}
+                >
                   Cancel audio
                 </button>
               </div>

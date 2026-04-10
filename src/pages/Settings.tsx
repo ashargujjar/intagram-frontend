@@ -37,6 +37,15 @@ const Settings = () => {
     url: "",
   });
   const backend_url = import.meta.env.VITE_BACKEND_URL;
+  const normalizeAssetUrl = (url?: string) => {
+    if (!url) return "";
+    if (/^https?:\/\//i.test(url)) return url;
+    if (!backend_url) return url;
+    const base = backend_url.replace(/\/+$/, "");
+    const path = url.startsWith("/") ? url : `/${url}`;
+    return `${base}${path}`;
+  };
+  const profilePhotoSrc = normalizeAssetUrl(bio.profilePhoto);
   useEffect(() => {
     async function getBio() {
       if (!token) {
@@ -380,6 +389,7 @@ const Settings = () => {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <ProfilePhotoCard
               user={bio}
+              photoSrc={profilePhotoSrc}
               previewUrl={photoPreview}
               selectedFileName={selectedPhoto?.name}
               isUploading={isPhotoUploading}
