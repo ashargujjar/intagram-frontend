@@ -10,4 +10,8 @@ export interface Profileprop {
   followers?: number;
   following?: number;
   posts?: number;
+  followings?: number;
+  followed?: string[];
+  requested?: string[];
+  followdBy?: string[];
 }

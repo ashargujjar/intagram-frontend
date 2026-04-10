@@ -20,7 +20,7 @@ const navLinks = [
   { name: "Explore", icon: <FaCompass />, path: "/explore" },
   { name: "Search", icon: <FaSearch />, path: "/search" },
   { name: "Notifications", icon: <FaBell />, path: "/notifications" },
-  { name: "Send Request", icon: <FaUserPlus />, path: "/send-request" },
+  { name: "Friend Requests", icon: <FaUserPlus />, path: "/friend-requests" },
   { name: "Create Photo", icon: <FaPlusSquare />, path: "/createPost" },
   { name: "Profile", icon: <FaUser />, path: "/profile" },
   { name: "Settings", icon: <FaCog />, path: "/settings" },

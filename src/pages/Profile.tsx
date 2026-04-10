@@ -25,6 +25,12 @@ type GridItem = {
   audio?: string;
 };
 
+type RelationState = {
+  isFollowing: boolean;
+  isRequested: boolean;
+  isCurrentUser: boolean;
+};
+
 const Profile = () => {
   const [searchParams] = useSearchParams();
   const viewedUsername = searchParams.get("user");
@@ -33,6 +39,20 @@ const Profile = () => {
   const backend_url = import.meta.env.VITE_BACKEND_URL;
   const [profile, setProfile] = useState<Profileprop | null>(null);
   const [posts, setPosts] = useState<PhotoPost[]>([]);
+  const [relation, setRelation] = useState<RelationState>({
+    isFollowing: false,
+    isRequested: false,
+    isCurrentUser: !viewedUsername,
+  });
+  const [followBusy, setFollowBusy] = useState(false);
+
+  useEffect(() => {
+    setRelation({
+      isFollowing: false,
+      isRequested: false,
+      isCurrentUser: !viewedUsername,
+    });
+  }, [viewedUsername]);
 
   useEffect(() => {
     if (!token || !backend_url) {
@@ -51,6 +71,13 @@ const Profile = () => {
         console.log("data", data);
         if (res.ok) {
           setProfile(data?.data?.userbio ?? null);
+          if (data?.data?.relation) {
+            setRelation({
+              isFollowing: Boolean(data.data.relation.isFollowing),
+              isRequested: Boolean(data.data.relation.isRequested),
+              isCurrentUser: Boolean(data.data.relation.isCurrentUser),
+            });
+          }
         } else {
           console.log(data?.message ?? "Unable to load profile details.");
         }
@@ -85,8 +112,9 @@ const Profile = () => {
     }
   }, [token, backend_url, viewedUsername]);
 
-  const isCurrentUser = !viewedUsername;
-  const isFollowing = false;
+  const isCurrentUser = relation.isCurrentUser || !viewedUsername;
+  const isFollowing = relation.isFollowing;
+  const isRequested = relation.isRequested;
   const fallbackUser: Profileprop = {
     username: viewedUsername || "user",
     email: "",
@@ -99,6 +127,7 @@ const Profile = () => {
     followers: 0,
     following: 0,
     posts: 0,
+    followings: 0,
   };
   const safeProfile = profile ?? fallbackUser;
   const viewedUser = {
@@ -110,10 +139,7 @@ const Profile = () => {
         ? safeProfile.private
         : isPrivateParam,
   };
-  const followingCount =
-    (safeProfile as { followings?: number }).followings ??
-    safeProfile.following ??
-    0;
+  const followingCount = safeProfile.followings ?? safeProfile.following ?? 0;
   const normalizeAssetUrl = (url?: string) => {
     if (!url) return "";
     if (/^https?:\/\//i.test(url)) return url;
@@ -164,6 +190,52 @@ const Profile = () => {
       )}&private=${viewedUser.isPrivate ? "1" : "0"}`
     : "/following";
 
+  const handleFollowToggle = async () => {
+    if (!token || !backend_url || !viewedUsername || followBusy) {
+      return;
+    }
+    const method = isFollowing || isRequested ? "DELETE" : "POST";
+    setFollowBusy(true);
+    try {
+      const res = await fetch(
+        `${backend_url}/follow/${encodeURIComponent(viewedUsername)}`,
+        {
+          method,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      const data = await res.json();
+      if (res.ok) {
+        const rel = data?.data?.relation;
+        if (rel) {
+          setRelation((prev) => ({
+            ...prev,
+            isFollowing: Boolean(rel.isFollowing),
+            isRequested: Boolean(rel.isRequested),
+            isCurrentUser: prev.isCurrentUser,
+          }));
+        }
+        const target = data?.data?.target;
+        if (target) {
+          setProfile((prev) => ({
+            ...(prev ?? fallbackUser),
+            followers: target.followers ?? prev?.followers ?? 0,
+            followings: target.followings ?? prev?.followings,
+            posts: target.posts ?? prev?.posts ?? 0,
+          }));
+        }
+      } else {
+        console.log(data?.message ?? "Unable to update follow status.");
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setFollowBusy(false);
+    }
+  };
+
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
       <div className="w-full sm:w-64 shrink-0">
@@ -208,45 +280,21 @@ const Profile = () => {
 
                 {!isCurrentUser && (
                   <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                    {!viewedUser.isPrivate && (
-                      <Button
-                        className={`flex-1 md:flex-none px-6 rounded-full font-semibold transition-all ${
-                          isFollowing
-                            ? "bg-white text-[#1A1A1A] border border-[#E6EEF5] hover:bg-red-50 hover:text-red-600"
-                            : "bg-[#1E4F7A] text-white hover:bg-[#143A5A]"
-                        }`}
-                      >
-                        {isFollowing ? "Following" : "Follow"}
-                      </Button>
-                    )}
-
-                    {viewedUser.isPrivate && !isFollowing && (
-                      <>
-                        <Button
-                          asChild
-                          className="flex-1 md:flex-none px-6 rounded-full font-semibold bg-[#1E4F7A] text-white hover:bg-[#143A5A]"
-                        >
-                          <Link
-                            to={`/send-request?user=${encodeURIComponent(
-                              viewedUser.username,
-                            )}`}
-                          >
-                            Follow
-                          </Link>
-                        </Button>
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="px-6 rounded-full font-semibold border-[#D6E2EC]"
-                        ></Button>
-                      </>
-                    )}
-
-                    {viewedUser.isPrivate && isFollowing && (
-                      <Button className="bg-gray-100 text-[#1A1A1A] rounded-full">
-                        Following
-                      </Button>
-                    )}
+                    <Button
+                      onClick={handleFollowToggle}
+                      disabled={followBusy}
+                      className={`flex-1 md:flex-none px-6 rounded-full font-semibold transition-all cursor-pointer ${
+                        isFollowing || isRequested
+                          ? "bg-white text-[#1A1A1A] border border-[#E6EEF5] hover:bg-red-50 hover:text-red-600"
+                          : "bg-[#1E4F7A] text-white hover:bg-[#143A5A]"
+                      }`}
+                    >
+                      {isFollowing
+                        ? "Unfollow"
+                        : isRequested
+                          ? "Requested"
+                          : "Follow"}
+                    </Button>
 
                     <Button
                       variant="outline"
