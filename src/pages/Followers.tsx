@@ -1,69 +1,44 @@
+import { useFoll_wer_wing } from "@/components/hooks/fol-wer-wing";
 import Nav from "@/components/Nav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Link, useSearchParams } from "react-router-dom";
-
-const mockUser = {
-  name: "Ashar",
-  username: "@ashar.dev",
-  isPrivate: true,
-  followers: 84,
-  following: 84,
-};
-
-const mockFollowers = [
-  {
-    id: 1,
-    name: "Zainab Malik",
-    username: "@zainab.codes",
-    avatar: "https://i.pravatar.cc/150?u=zainab",
-    isFollowingBack: false,
-  },
-  {
-    id: 2,
-    name: "Ali Khan",
-    username: "@ali_khan",
-    avatar: "https://i.pravatar.cc/150?u=ali",
-    isFollowingBack: true,
-  },
-  {
-    id: 3,
-    name: "Sara Ahmed",
-    username: "@sara_designs",
-    avatar: "https://i.pravatar.cc/150?u=sara",
-    isFollowingBack: false,
-  },
-  {
-    id: 4,
-    name: "Dev Hassan",
-    username: "@dev_hassan",
-    avatar: "https://i.pravatar.cc/150?u=hassan",
-    isFollowingBack: true,
-  },
-];
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 const Followers = () => {
   const [searchParams] = useSearchParams();
   const viewedUsername = searchParams.get("user");
   const isPrivateParam = searchParams.get("private") === "1";
-  const isCurrentUser = !viewedUsername;
-  const isFollowing = false;
-  const viewedUser = {
-    ...mockUser,
-    username: viewedUsername || mockUser.username,
-    isPrivate: isPrivateParam || mockUser.isPrivate,
-  };
-  const isLocked = viewedUser.isPrivate && !isFollowing && !isCurrentUser;
+  const backend_url = import.meta.env.VITE_BACKEND_URL;
+  const { username } = useParams();
+  const targetId = username || viewedUsername || "me";
+  const response = useFoll_wer_wing(targetId, backend_url);
+  const isCurrentUser =
+    response.followers?.currUser?._id && username
+      ? String(response.followers.currUser._id) === String(username)
+      : !viewedUsername;
+  const isFollowingTarget = Array.isArray(
+    response.followers?.currUser?.followed,
+  )
+    ? response.followers!.currUser.followed!.includes(String(username))
+    : false;
+  const isLocked = isPrivateParam && !isCurrentUser && !isFollowingTarget;
+  const viewedLabel = viewedUsername || "you";
   const profileLink = viewedUsername
-    ? `/profile?user=${encodeURIComponent(
-        viewedUser.username,
-      )}&private=${viewedUser.isPrivate ? "1" : "0"}`
+    ? `/profile?user=${encodeURIComponent(viewedUsername)}&private=${
+        isPrivateParam ? "1" : "0"
+      }`
     : "/profile";
-  const followingLink = viewedUsername
-    ? `/following?user=${encodeURIComponent(
-        viewedUser.username,
-      )}&private=${viewedUser.isPrivate ? "1" : "0"}`
-    : "/following";
+  const followingLink = username
+    ? viewedUsername
+      ? `/following/${encodeURIComponent(username)}?user=${encodeURIComponent(
+          viewedUsername,
+        )}&private=${isPrivateParam ? "1" : "0"}`
+      : `/following/${encodeURIComponent(username)}`
+    : viewedUsername
+      ? `/following?user=${encodeURIComponent(viewedUsername)}&private=${
+          isPrivateParam ? "1" : "0"
+        }`
+      : "/following";
 
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
@@ -86,7 +61,7 @@ const Followers = () => {
                 Followers
               </h1>
               <p className="text-sm text-[#4B6B88] mt-2 max-w-xl">
-                People who follow {viewedUser.username}.
+                People who follow {viewedLabel}.
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -107,13 +82,7 @@ const Followers = () => {
 
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-['Spline_Sans_Mono'] text-[#4B6B88]">
                 <span className="rounded-full border border-[#D6E2EC] bg-white/80 px-3 py-1">
-                  Total: {viewedUser.followers}
-                </span>
-                <span className="rounded-full border border-[#D6E2EC] bg-white/80 px-3 py-1">
-                  Showing: {mockFollowers.length}
-                </span>
-                <span className="rounded-full border border-[#D6E2EC] bg-white/80 px-3 py-1">
-                  Follow backs
+                  Showing: {response.followers?.profiles?.length ?? 0}
                 </span>
               </div>
             </div>
@@ -126,50 +95,98 @@ const Followers = () => {
           </div>
         ) : (
           <div className="w-full max-w-3xl mt-8 flex flex-col gap-3">
-            {mockFollowers.map((follower) => (
-              <div
-                key={follower.id}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-[#E6EEF5] bg-white/95 shadow-sm p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar size="lg" className="border border-gray-100 shadow-sm">
-                    <AvatarImage
-                      src={follower.avatar}
-                      alt={follower.name}
-                    />
-                    <AvatarFallback>
-                      {follower.name.substring(0, 1)}
-                    </AvatarFallback>
-                  </Avatar>
+            {response.loading && (
+              <div className="rounded-2xl border border-[#E6EEF5] bg-white/95 shadow-sm p-4 text-sm text-[#4B6B88]">
+                Loading followers...
+              </div>
+            )}
+            {!response.loading &&
+              response.followers?.profiles?.length === 0 && (
+                <div className="rounded-2xl border border-[#E6EEF5] bg-white/95 shadow-sm p-4 text-sm text-[#4B6B88]">
+                  No followers yet.
+                </div>
+              )}
+            {response.followers?.profiles?.map((follower) => {
+              const followerId = follower.userId?._id;
+              const followerUsername = follower.userId?.username;
+              const profileHref = followerUsername
+                ? `/profile?user=${encodeURIComponent(
+                    followerUsername,
+                  )}&private=${follower.private ? "1" : "0"}`
+                : "/profile";
+              const isFollowingBack = Array.isArray(
+                response.followers?.currUser?.followed,
+              )
+                ? response.followers!.currUser.followed!.includes(
+                    String(followerId),
+                  )
+                : false;
+              const avatarSrc = follower.profilePhoto
+                ? follower.profilePhoto.startsWith("http")
+                  ? follower.profilePhoto
+                  : backend_url
+                    ? `${backend_url}${
+                        follower.profilePhoto.startsWith("/") ? "" : "/"
+                      }${follower.profilePhoto}`
+                    : follower.profilePhoto
+                : "";
+
+              return (
+                <div
+                  key={followerId}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-[#E6EEF5] bg-white/95 shadow-sm p-4"
+                >
+                  <Link
+                    to={profileHref}
+                    className="flex items-center gap-3 hover:opacity-90"
+                  >
+                    <Avatar
+                      size="lg"
+                      className="border border-gray-100 shadow-sm"
+                    >
+                      <AvatarImage
+                        src={avatarSrc}
+                        alt={follower.name || follower.userId?.username}
+                      />
+                      <AvatarFallback>
+                        {(follower.name || follower.userId?.username || "?")
+                          .substring(0, 1)
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-semibold text-[#0B2A43]">
+                        {follower.name}
+                      </div>
+                      <div className="text-sm text-[#6B7280]">
+                        {follower.userId.username}
+                      </div>
+                    </div>
+                  </Link>
+
                   <div>
-                    <div className="font-semibold text-[#0B2A43]">
-                      {follower.name}
-                    </div>
-                    <div className="text-sm text-[#6B7280]">
-                      {follower.username}
-                    </div>
+                    <Button
+                      className={`px-4 h-9 rounded-full font-semibold transition-all ${
+                        isFollowingBack
+                          ? "bg-gray-100 text-[#1A1A1A] hover:bg-red-50 hover:text-red-600"
+                          : "bg-[#1E4F7A] text-white hover:bg-[#143A5A]"
+                      }`}
+                    >
+                      {isFollowingBack ? "Following" : "Follow Back"}
+                    </Button>
+
+                    {isFollowingBack && (
+                      <Button
+                        variant="outline"
+                        className="px-4 h-9 rounded-full border-gray-300 text-gray-600"
+                      >
+                        Remove
+                      </Button>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    className={`px-4 h-9 rounded-full font-semibold transition-all ${
-                      follower.isFollowingBack
-                        ? "bg-gray-100 text-[#1A1A1A] hover:bg-red-50 hover:text-red-600 border border-transparent"
-                        : "bg-[#1E4F7A] text-white hover:bg-[#143A5A]"
-                    }`}
-                  >
-                    {follower.isFollowingBack ? "Following" : "Follow Back"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="px-4 h-9 rounded-full border-gray-300 text-gray-600"
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

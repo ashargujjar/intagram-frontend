@@ -17,6 +17,7 @@ const FriendRequests = () => {
   const backend_url = import.meta.env.VITE_BACKEND_URL;
   const [requests, setRequests] = useState<FollowRequestItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [introOpen, setIntroOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!token || !backend_url) {
@@ -66,6 +67,10 @@ const FriendRequests = () => {
     } catch (error) {
       console.log(error);
     }
+  };
+
+  const toggleIntro = (id: string) => {
+    setIntroOpen((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const defaultAvatar =
@@ -177,6 +182,33 @@ const FriendRequests = () => {
                 <div className="mt-4 rounded-xl border border-[#E6EEF5] bg-[#F6FBFF] p-3 text-sm text-[#4B6B88] flex items-start gap-2">
                   <MessageSquareText className="w-4 h-4 mt-0.5 text-[#1E4F7A]" />
                   <span>Wants to follow you.</span>
+                </div>
+
+                <div className="mt-3 rounded-xl border border-[#E6EEF5] bg-white/95 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-[#0B2A43]">
+                        Profile intro
+                      </div>
+                      <div className="text-xs text-[#4B6B88]">
+                        Add an AI summary for this request later.
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-8 rounded-full border-[#D6E2EC] text-[#1E4F7A] hover:bg-[#F6FBFF]"
+                      onClick={() => toggleIntro(request.id)}
+                    >
+                      {introOpen[request.id] ? "Hide" : "Show"}
+                    </Button>
+                  </div>
+
+                  {introOpen[request.id] && (
+                    <div className="mt-3 rounded-lg border border-dashed border-[#1E4F7A]/30 bg-[#F9FBFF] p-3 text-sm text-[#4B6B88]">
+                      Summary placeholder. Hook up AI later.
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

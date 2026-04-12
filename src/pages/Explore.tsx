@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FaSearch } from "react-icons/fa";
 import { Heart, MessageCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // 🛑 STATIC MOCK DATA for Explore Grid
 const mockExplorePosts = [
@@ -156,8 +157,9 @@ const Explore = () => {
 
         <div className="grid grid-cols-3 gap-1 md:gap-2 pb-10">
           {mockExplorePosts.map((post) => (
-            <div
+            <Link
               key={post.id}
+              to="/addComment"
               className="relative aspect-square group cursor-pointer overflow-hidden rounded-md bg-gray-100 border border-gray-100 shadow-sm"
             >
               <img
@@ -177,7 +179,7 @@ const Explore = () => {
                   <span>{post.comments}</span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

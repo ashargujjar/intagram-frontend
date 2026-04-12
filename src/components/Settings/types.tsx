@@ -14,4 +14,5 @@ export interface Profileprop {
   followed?: string[];
   requested?: string[];
   followdBy?: string[];
+  userId?: string;
 }

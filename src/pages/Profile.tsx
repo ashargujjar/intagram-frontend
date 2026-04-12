@@ -1,4 +1,5 @@
 ﻿import Nav from "@/components/Nav";
+import ProfileSummaryCard from "@/components/Profile/ProfileSummaryCard";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -149,6 +150,7 @@ const Profile = () => {
     following: 0,
     posts: 0,
     followings: 0,
+    userId: "",
   };
   const safeProfile = profile ?? fallbackUser;
   const viewedUser = {
@@ -201,15 +203,19 @@ const Profile = () => {
 
   const isLocked = viewedUser.isPrivate && !isFollowing && !isCurrentUser;
   const followersLink = viewedUsername
-    ? `/followers?user=${encodeURIComponent(
+    ? `/followers/${encodeURIComponent(
+        String(viewedUser.userId),
+      )}?user=${encodeURIComponent(
         viewedUser.username,
       )}&private=${viewedUser.isPrivate ? "1" : "0"}`
-    : "/followers";
+    : `/followers/${encodeURIComponent(String(viewedUser.userId))}`;
   const followingLink = viewedUsername
-    ? `/following?user=${encodeURIComponent(
+    ? `/following/${encodeURIComponent(
+        String(viewedUser.userId),
+      )}?user=${encodeURIComponent(
         viewedUser.username,
       )}&private=${viewedUser.isPrivate ? "1" : "0"}`
-    : "/following";
+    : `/following/${encodeURIComponent(String(viewedUser.userId))}`;
 
   const handleFollowToggle = async () => {
     if (!token || !backend_url || !viewedUsername || followBusy) {
@@ -380,6 +386,8 @@ const Profile = () => {
                   </a>
                 ) : null}
               </div>
+
+              <ProfileSummaryCard />
 
               {!isLocked && introAudioSrc && (
                 <div className="mt-4 rounded-2xl border border-[#E6EEF5] bg-white/90 p-4 shadow-sm">

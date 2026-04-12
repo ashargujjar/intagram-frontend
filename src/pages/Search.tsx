@@ -15,6 +15,8 @@ type SearchUserItem = {
   followers?: number;
   followings?: number;
   posts?: number;
+  isFollowing?: boolean;
+  isRequested?: boolean;
 };
 type TokenUser = {
   id: string;
@@ -30,6 +32,7 @@ const Search = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [currUser, setCurUser] = useState<TokenUser>();
+  const [actionBusy, setActionBusy] = useState<Record<string, boolean>>({});
   const backend_url = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
@@ -103,6 +106,51 @@ const Search = () => {
     "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop";
   const hasQuery = username.trim().length > 0;
 
+  const handleFollowToggle = async (user: SearchUserItem) => {
+    if (!backend_url || !token || !user.username) return;
+    if (actionBusy[user.id]) return;
+    const isFollowing = Boolean(user.isFollowing);
+    const isRequested = Boolean(user.isRequested);
+    const method = isFollowing || isRequested ? "DELETE" : "POST";
+    setActionBusy((prev) => ({ ...prev, [user.id]: true }));
+    try {
+      const res = await fetch(
+        `${backend_url}/follow/${encodeURIComponent(user.username)}`,
+        {
+          method,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      const data = await res.json();
+      if (res.ok) {
+        const relation = data?.data?.relation;
+        const nextIsFollowing = Boolean(relation?.isFollowing);
+        const nextIsRequested = Boolean(relation?.isRequested);
+        setFoundUsers((prev) =>
+          prev.map((item) =>
+            item.id === user.id
+              ? {
+                  ...item,
+                  isFollowing: nextIsFollowing,
+                  isRequested: nextIsRequested,
+                }
+              : item,
+          ),
+        );
+      }
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setActionBusy((prev) => {
+        const next = { ...prev };
+        delete next[user.id];
+        return next;
+      });
+    }
+  };
+
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
       {/* Sidebar Navigation */}
@@ -157,6 +205,9 @@ const Search = () => {
                   ? user.username
                   : `@${user.username}`;
                 const isPrivate = Boolean(user.private);
+                const isFollowing = Boolean(user.isFollowing);
+                const isRequested = Boolean(user.isRequested);
+                const isBusy = Boolean(actionBusy[user.id]);
                 const avatarSrc =
                   normalizeAssetUrl(user.profilePhoto) || defaultAvatar;
                 return (
@@ -215,8 +266,20 @@ const Search = () => {
                           </Button>
                         </Link>
                       ) : (
-                        <Button className="px-6 rounded-full font-medium transition-all cursor-pointer bg-[#1E4F7A] text-white hover:bg-[#143A5A]">
-                          Follow
+                        <Button
+                          onClick={() => handleFollowToggle(user)}
+                          disabled={isBusy}
+                          className={`px-6 rounded-full font-medium transition-all cursor-pointer disabled:opacity-60 ${
+                            isFollowing || isRequested
+                              ? "bg-gray-100 text-[#1A1A1A] hover:bg-red-50 hover:text-red-600"
+                              : "bg-[#1E4F7A] text-white hover:bg-[#143A5A]"
+                          }`}
+                        >
+                          {isFollowing
+                            ? "Unfollow"
+                            : isRequested
+                              ? "Requested"
+                              : "Follow"}
                         </Button>
                       )}
                     </div>

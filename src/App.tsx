@@ -56,8 +56,9 @@ const App = () => {
           <Route path="/send-request" element={<SendRequest />} />
           <Route path="/sent-requests" element={<SentRequests />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/followers" element={<Followers />} />
+          <Route path="/followers/:username" element={<Followers />} />
           <Route path="/following" element={<Following />} />
+          <Route path="/following/:username" element={<Following />} />
           <Route path="/createPost" element={<CreatePost />} />
           <Route path="/search" element={<Search />} />
           <Route path="/explore" element={<Explore />} />

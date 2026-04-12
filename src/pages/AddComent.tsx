@@ -71,6 +71,8 @@ const PostDetail = () => {
   const state = (location.state as PostDetailState | null) ?? null;
   const resolvedPostId = state?.post?.id ?? postId;
   const resolvedPostIdString = resolvedPostId ? String(resolvedPostId) : "";
+  const authorUsernameFromState = state?.author?.username ?? "";
+  const authorUsernameRaw = authorUsernameFromState.replace(/^@/, "");
   const backendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined;
   const navigate = useNavigate();
   const [comment, setComment] = useState<CommentType>({
@@ -119,7 +121,10 @@ const PostDetail = () => {
     const loadComments = async () => {
       setIsFetchingComments(true);
       try {
-        const res = await fetch(`${backendUrl}/photo`, {
+        const photosUrl = authorUsernameRaw
+          ? `${backendUrl}/photo/${encodeURIComponent(authorUsernameRaw)}`
+          : `${backendUrl}/photo`;
+        const res = await fetch(photosUrl, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -168,7 +173,7 @@ const PostDetail = () => {
     return () => {
       isActive = false;
     };
-  }, [backendUrl, resolvedPostIdString]);
+  }, [backendUrl, resolvedPostIdString, authorUsernameRaw]);
 
   const formatRelativeTime = (iso?: string) => {
     if (!iso) return "";

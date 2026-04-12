@@ -146,6 +146,16 @@ const CreatePost = () => {
                   }}
                   className="min-h-[120px] resize-none text-base p-4 focus-visible:ring-[#1E4F7A] bg-white"
                 />
+                <div className="flex items-center justify-between text-xs text-[#4B6B88]">
+                  <span>{text.length}/200</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 rounded-full border-[#D6E2EC] text-[#1E4F7A] hover:bg-[#F6FBFF]"
+                  >
+                    Enhance with AI
+                  </Button>
+                </div>
 
                 <div className="flex flex-wrap gap-3 mt-2">
                   {photho.map((file, index) => {

@@ -38,11 +38,11 @@ const mockPosts = [
 ];
 const Pictures = () => {
   return (
-    <div className="w-full max-w-xl flex flex-col gap-6">
+    <div className="w-full max-w-lg flex flex-col gap-6">
       {mockPosts.map((post) => (
         <Card
           key={post.id}
-          className="w-full shadow-sm border border-gray-100 bg-white rounded-xl overflow-hidden"
+          className="w-full shadow-sm border border-gray-100 bg-white rounded-2xl overflow-hidden"
         >
           {/* --- POST HEADER (Top profile logo, username, more options) --- */}
           <div className="flex items-center justify-between p-4 border-b border-gray-50">
@@ -72,7 +72,7 @@ const Pictures = () => {
           </div>
 
           {/* --- MAIN POST IMAGE --- */}
-          <div className="w-full aspect-[4/5] bg-gray-50 overflow-hidden">
+          <div className="w-full h-64 sm:h-72 md:h-80 bg-gray-50 overflow-hidden">
             <img
               src={post.postImage}
               alt="Post content"
