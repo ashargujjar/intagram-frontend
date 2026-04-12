@@ -1,84 +1,91 @@
-import Nav from "@/components/Nav";
+﻿import Nav from "@/components/Nav";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
-// 🛑 STATIC MOCK DATA
-const mockNotifications = [
-  {
-    id: 1,
-    type: "like",
-    user: {
-      name: "Zainab Malik",
-      username: "@zainab.codes",
-      avatar: "https://i.pravatar.cc/150?u=zainab",
-    },
-    postImage:
-      "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=200&auto=format&fit=crop",
-    time: "2h",
-    isUnread: true,
-  },
-  {
-    id: 2,
-    type: "comment",
-    user: {
-      name: "Ali Khan",
-      username: "@ali_khan",
-      avatar: "https://i.pravatar.cc/150?u=ali",
-    },
-    text: "When is the ShipSmart app officially deploying? Can't wait!",
-    postImage:
-      "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=200&auto=format&fit=crop",
-    time: "4h",
-    isUnread: true,
-  },
-  {
-    id: 3,
-    type: "follow",
-    user: {
-      name: "Sara Ahmed",
-      username: "@sara_designs",
-      avatar: "https://i.pravatar.cc/150?u=sara",
-    },
-    isFollowingBack: false,
-    time: "1d",
-    isUnread: false,
-  },
-  {
-    id: 4,
-    type: "like",
-    user: {
-      name: "Dev Hassan",
-      username: "@dev_hassan",
-      avatar: "https://i.pravatar.cc/150?u=hassan",
-    },
-    postImage:
-      "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?q=80&w=200&auto=format&fit=crop",
-    time: "2d",
-    isUnread: false,
-  },
-  {
-    id: 5,
-    type: "follow",
-    user: {
-      name: "Tech Guru",
-      username: "@tech_guru",
-      avatar: "https://i.pravatar.cc/150?u=guru",
-    },
-    isFollowingBack: true,
-    time: "3d",
-    isUnread: false,
-  },
-];
+type NotificationItem = {
+  id: string;
+  type: "like" | "comment" | "follow" | "mention";
+  message?: string;
+  read?: boolean;
+  createdAt?: string;
+  fromUser?: {
+    id?: string;
+    username?: string;
+    name?: string;
+    profilePhoto?: string;
+  };
+  postId?: string;
+  postImage?: string;
+};
 
 const Notifications = () => {
+  const backend_url = import.meta.env.VITE_BACKEND_URL;
+  const token = localStorage.getItem("RabtaLtoken");
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!backend_url || !token) return;
+    const loadNotifications = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${backend_url}/notifications`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const list = Array.isArray(data?.data?.notifications)
+            ? data.data.notifications
+            : [];
+          setNotifications(list);
+        }
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadNotifications();
+  }, [backend_url, token]);
+
+  const normalizeAssetUrl = (url?: string) => {
+    if (!url) return "";
+    if (/^https?:\/\//i.test(url)) return url;
+    if (!backend_url) return url;
+    const base = backend_url.replace(/\/+$/, "");
+    const path = url.startsWith("/") ? url : `/${url}`;
+    return `${base}${path}`;
+  };
+
+  const formatRelativeTime = (iso?: string) => {
+    if (!iso) return "";
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    const diffMs = Date.now() - date.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    if (diffSeconds < 60) return "just now";
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `${diffMinutes}m`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d`;
+    return date.toLocaleDateString();
+  };
+
+  const defaultAvatar =
+    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop";
+
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
-      {/* 1. SIDEBAR NAVIGATION */}
       <div className="w-full sm:w-64 shrink-0">
         <Nav />
       </div>
 
-      {/* 2. MAIN CONTENT (Notifications List) */}
       <div className="flex-1 flex flex-col mt-4 sm:mt-0 font-['Space_Grotesk']">
         <div className="w-full max-w-3xl">
           <div className="relative overflow-hidden rounded-3xl border border-[#E6EEF5] bg-gradient-to-br from-white via-[#F6FBFF] to-[#FFF4E1] shadow-lg p-6 md:p-8">
@@ -114,70 +121,105 @@ const Notifications = () => {
 
         <div className="w-full max-w-2xl mt-8">
           <div className="flex flex-col gap-2">
-            {mockNotifications.map((notif) => (
-              <div
-                key={notif.id}
-                className={`flex items-center justify-between p-4 rounded-2xl transition-colors border border-[#E6EEF5] ${
-                  notif.isUnread
-                    ? "bg-[#1E4F7A]/5"
-                    : "bg-white/90 hover:bg-white"
-                }`}
-              >
-                <div className="flex items-start gap-4 cursor-pointer w-full">
-                  <Avatar className="w-11 h-11 border border-gray-100 shadow-sm shrink-0 mt-0.5">
-                    <AvatarImage src={notif.user.avatar} />
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
+            {loading && (
+              <div className="text-sm text-[#4B6B88]">
+                Loading notifications...
+              </div>
+            )}
+            {!loading && notifications.length === 0 && (
+              <div className="text-sm text-[#4B6B88]">
+                No notifications yet.
+              </div>
+            )}
+            {!loading &&
+              notifications.map((notif) => {
+                const user = notif.fromUser;
+                const username = user?.username ?? "user";
+                const displayUsername = username.startsWith("@")
+                  ? username
+                  : `@${username}`;
+                const avatarSrc =
+                  normalizeAssetUrl(user?.profilePhoto) || defaultAvatar;
+                const timeLabel = formatRelativeTime(notif.createdAt);
+                const isUnread = !notif.read;
+                const postImage = normalizeAssetUrl(notif.postImage);
+                const profileLink = user?.username
+                  ? `/profile?user=${encodeURIComponent(user.username)}`
+                  : "/profile";
 
-                  <div className="flex flex-col flex-1 pr-4">
-                    <div className="text-sm md:text-base text-[#1A1A1A] leading-snug">
-                      <span className="font-bold hover:underline mr-1">
-                        {notif.user.username}
-                      </span>
+                return (
+                  <div
+                    key={notif.id}
+                    className={`flex items-center justify-between p-4 rounded-2xl transition-colors border border-[#E6EEF5] ${
+                      isUnread
+                        ? "bg-[#1E4F7A]/5"
+                        : "bg-white/90 hover:bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start gap-4 cursor-pointer w-full">
+                      <Avatar className="w-11 h-11 border border-gray-100 shadow-sm shrink-0 mt-0.5">
+                        <AvatarImage src={avatarSrc} />
+                        <AvatarFallback>
+                          {displayUsername.substring(1, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
 
-                      {notif.type === "like" && <span>liked your photo.</span>}
-                      {notif.type === "comment" && (
-                        <span>
-                          commented on your post:{" "}
-                          <span className="text-gray-600">"{notif.text}"</span>
-                        </span>
-                      )}
+                      <div className="flex flex-col flex-1 pr-4">
+                        <div className="text-sm md:text-base text-[#1A1A1A] leading-snug">
+                          <Link
+                            to={profileLink}
+                            className="font-bold hover:underline mr-1"
+                          >
+                            {displayUsername}
+                          </Link>
+
+                          {notif.type === "like" && (
+                            <span>liked your photo.</span>
+                          )}
+                          {notif.type === "comment" && (
+                            <span>
+                              {notif.message
+                                ? notif.message
+                                : "commented on your post."}
+                            </span>
+                          )}
+                          {notif.type === "follow" && (
+                            <span>started following you.</span>
+                          )}
+                          {notif.type === "mention" && (
+                            <span>mentioned you.</span>
+                          )}
+
+                          {timeLabel && (
+                            <span className="text-gray-400 text-xs sm:text-sm ml-2">
+                              {timeLabel}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      {(notif.type === "like" || notif.type === "comment") &&
+                        postImage && (
+                          <div className="w-12 h-12 overflow-hidden rounded-md cursor-pointer hover:opacity-80 transition-opacity">
+                            <img
+                              src={postImage}
+                              alt="Post thumbnail"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+
                       {notif.type === "follow" && (
-                        <span>started following you.</span>
+                        <Button className="px-4 sm:px-6 h-9 rounded-full font-semibold transition-all bg-[#1E4F7A] text-white hover:bg-[#143A5A]">
+                          Follow Back
+                        </Button>
                       )}
-
-                      <span className="text-gray-400 text-xs sm:text-sm ml-2">
-                        {notif.time}
-                      </span>
                     </div>
                   </div>
-                </div>
-
-                <div className="shrink-0">
-                  {(notif.type === "like" || notif.type === "comment") && (
-                    <div className="w-12 h-12 overflow-hidden rounded-md cursor-pointer hover:opacity-80 transition-opacity">
-                      <img
-                        src={notif.postImage}
-                        alt="Post thumbnail"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  {notif.type === "follow" && (
-                    <Button
-                      className={`px-4 sm:px-6 h-9 rounded-full font-semibold transition-all ${
-                        notif.isFollowingBack
-                          ? "bg-gray-100 text-[#1A1A1A] hover:bg-red-50 hover:text-red-600 border border-transparent"
-                          : "bg-[#1E4F7A] text-white hover:bg-[#143A5A]"
-                      }`}
-                    >
-                      {notif.isFollowingBack ? "Following" : "Follow Back"}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+                );
+              })}
           </div>
         </div>
       </div>

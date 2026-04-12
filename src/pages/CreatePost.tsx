@@ -15,7 +15,7 @@ import { formatTime, useAudioRecorder } from "@/lib/useAudioRecorder";
 
 const CreatePost = () => {
   const [text, setText] = useState<string>("");
-  const [photho, setPhoto] = useState<File[]>([]);
+  const [photho, setPhoto] = useState<File | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const {
     maxDuration,
@@ -32,16 +32,11 @@ const CreatePost = () => {
     createFile,
   } = useAudioRecorder({ maxSeconds: 10 });
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newFiles = Array.from(e.target.files || []);
-
-    setPhoto((prev) => {
-      const combined = [...prev, ...newFiles];
-      return combined.slice(0, 3); // max 3
-    });
+    const file = e.target.files?.[0] ?? null;
+    setPhoto(file);
   };
-  type indexInput = string | number;
-  const handleRemove = (index: indexInput) => {
-    setPhoto((prev) => prev.filter((_, ind) => ind !== index));
+  const handleRemove = () => {
+    setPhoto(null);
   };
   const token = localStorage.getItem("RabtaLtoken");
 
@@ -53,16 +48,14 @@ const CreatePost = () => {
       const formData = new FormData();
       formData.append("text", text);
 
-      if (photho.length === 0) {
+      if (!photho) {
         toast.error("No photo selected!");
         toast.error("Please upload at least one picture");
         setLoading(false);
         return;
       }
 
-      photho.forEach((p) => {
-        formData.append("images", p);
-      });
+      formData.append("image", photho);
       if (recordedBlob) {
         const audioFile = createFile("post-audio");
         if (audioFile) {
@@ -158,24 +151,20 @@ const CreatePost = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-3 mt-2">
-                  {photho.map((file, index) => {
-                    return (
-                      <div className="relative w-24 h-24 group" key={index}>
-                        <img
-                          src={URL.createObjectURL(file)}
-                          className="w-full h-full object-cover rounded-md border border-gray-200"
-                        />
-                        <button
-                          className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md transition-colors cursor-pointer"
-                          onClick={() => {
-                            handleRemove(index);
-                          }}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    );
-                  })}
+                  {photho && (
+                    <div className="relative w-24 h-24 group">
+                      <img
+                        src={URL.createObjectURL(photho)}
+                        className="w-full h-full object-cover rounded-md border border-gray-200"
+                      />
+                      <button
+                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md transition-colors cursor-pointer"
+                        onClick={handleRemove}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer hover:text-[#1E4F7A] transition-colors w-max mt-2">
@@ -185,7 +174,6 @@ const CreatePost = () => {
                     <input
                       onChange={handleFiles}
                       type="file"
-                      multiple
                       className="hidden"
                       accept=".jpg,.png,.jpeg"
                     />

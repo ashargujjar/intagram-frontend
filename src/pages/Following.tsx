@@ -2,6 +2,7 @@ import { useFoll_wer_wing } from "@/components/hooks/fol-wer-wing";
 import Nav from "@/components/Nav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 const Following = () => {
@@ -9,6 +10,7 @@ const Following = () => {
   const viewedUsername = searchParams.get("user");
   const isPrivateParam = searchParams.get("private") === "1";
   const backend_url = import.meta.env.VITE_BACKEND_URL;
+  const token = localStorage.getItem("RabtaLtoken");
   const { username } = useParams();
   const targetId = username || viewedUsername || "me";
   const { followers: followings, loading } = useFoll_wer_wing(
@@ -16,12 +18,20 @@ const Following = () => {
     backend_url,
     "followings",
   );
+  const [localFollowings, setLocalFollowings] = useState(followings);
+  const [actionBusy, setActionBusy] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setLocalFollowings(followings);
+  }, [followings]);
+
+  const data = localFollowings ?? followings;
   const isCurrentUser =
-    followings?.currUser?._id && username
-      ? String(followings.currUser._id) === String(username)
+    data?.currUser?._id && username
+      ? String(data.currUser._id) === String(username)
       : !viewedUsername;
-  const isFollowingTarget = Array.isArray(followings?.currUser?.followed)
-    ? followings!.currUser.followed!.includes(String(username))
+  const isFollowingTarget = Array.isArray(data?.currUser?.followed)
+    ? data!.currUser.followed!.includes(String(username))
     : false;
   const isLocked = isPrivateParam && !isCurrentUser && !isFollowingTarget;
   const viewedLabel = viewedUsername || "you";
@@ -41,6 +51,57 @@ const Following = () => {
           viewedUsername,
         )}&private=${isPrivateParam ? "1" : "0"}`
       : "/followers";
+
+  const handleUnfollow = async (
+    followed: NonNullable<typeof data>["profiles"][number],
+  ) => {
+    if (!backend_url || !token) return;
+    const followedId = String(followed.userId?._id ?? followed._id);
+    if (actionBusy[followedId]) return;
+    const followedUsername = followed.userId?.username;
+    if (!followedUsername) return;
+    setActionBusy((prev) => ({ ...prev, [followedId]: true }));
+    try {
+      const res = await fetch(
+        `${backend_url}/follow/${encodeURIComponent(followedUsername)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (res.ok && isCurrentUser) {
+        setLocalFollowings((prev) => {
+          if (!prev) return prev;
+          const nextProfiles = prev.profiles.filter((item) => {
+            const id = item.userId?._id ?? item._id;
+            return String(id) !== followedId;
+          });
+          const nextFollowed = Array.isArray(prev.currUser?.followed)
+            ? prev.currUser!.followed!.filter(
+                (id) => String(id) !== followedId,
+              )
+            : prev.currUser?.followed;
+          return {
+            ...prev,
+            profiles: nextProfiles,
+            currUser: prev.currUser
+              ? { ...prev.currUser, followed: nextFollowed }
+              : prev.currUser,
+          };
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setActionBusy((prev) => {
+        const next = { ...prev };
+        delete next[followedId];
+        return next;
+      });
+    }
+  };
 
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
@@ -84,10 +145,10 @@ const Following = () => {
 
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-['Spline_Sans_Mono'] text-[#4B6B88]">
                 <span className="rounded-full border border-[#D6E2EC] bg-white/80 px-3 py-1">
-                  Total: {followings?.profiles?.length ?? 0}
+                  Total: {data?.profiles?.length ?? 0}
                 </span>
                 <span className="rounded-full border border-[#D6E2EC] bg-white/80 px-3 py-1">
-                  Showing: {followings?.profiles?.length ?? 0}
+                  Showing: {data?.profiles?.length ?? 0}
                 </span>
                 <span className="rounded-full border border-[#D6E2EC] bg-white/80 px-3 py-1">
                   Mutuals
@@ -108,13 +169,14 @@ const Following = () => {
                 Loading following...
               </div>
             )}
-            {!loading && followings?.profiles?.length === 0 && (
+            {!loading && data?.profiles?.length === 0 && (
               <div className="rounded-2xl border border-[#E6EEF5] bg-white/95 shadow-sm p-4 text-sm text-[#4B6B88]">
                 No following yet.
               </div>
             )}
-            {followings?.profiles?.map((followed) => {
+            {data?.profiles?.map((followed) => {
               const followedId = followed.userId?._id ?? followed._id;
+              const isBusy = actionBusy[String(followedId)];
               const followedUsername = followed.userId?.username;
               const profileHref = followedUsername
                 ? `/profile?user=${encodeURIComponent(
@@ -161,7 +223,11 @@ const Following = () => {
                   </Link>
 
                   <div className="flex flex-wrap gap-2">
-                    <Button className="px-4 h-9 rounded-full font-semibold bg-gray-100 text-[#1A1A1A] hover:bg-red-50 hover:text-red-600 border border-transparent">
+                    <Button
+                      onClick={() => handleUnfollow(followed)}
+                      disabled={isBusy}
+                      className="px-4 h-9 rounded-full font-semibold bg-gray-100 text-[#1A1A1A] hover:bg-red-50 hover:text-red-600 border border-transparent disabled:opacity-60"
+                    >
                       Unfollow
                     </Button>
                   </div>
