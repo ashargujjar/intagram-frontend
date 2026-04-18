@@ -3,7 +3,15 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Heart, MoreHorizontal, Send, Mic, Square, Trash2 } from "lucide-react";
+import {
+  Heart,
+  MoreHorizontal,
+  Send,
+  Mic,
+  Square,
+  Trash2,
+  LoaderCircle,
+} from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
@@ -90,6 +98,8 @@ const PostDetail = () => {
   const [serverComments, setServerComments] = useState<ServerComment[]>([]);
   const [commentsCount, setCommentsCount] = useState<number | null>(null);
   const [isFetchingComments, setIsFetchingComments] = useState(false);
+  const [commentSummary, setCommentSummary] = useState("");
+  const [isFetchingSummary, setIsFetchingSummary] = useState(false);
   const {
     maxDuration: maxAudioSeconds,
     isRecording,
@@ -112,6 +122,7 @@ const PostDetail = () => {
         ? prev
         : { ...prev, postId: resolvedPostIdString },
     );
+    setCommentSummary("");
   }, [resolvedPostIdString]);
 
   useEffect(() => {
@@ -237,6 +248,7 @@ const PostDetail = () => {
       if (res.ok) {
         toast.success(data?.message ?? "Comment uploaded successfully");
         const nextPost = data?.data;
+        setCommentSummary("");
         if (Array.isArray(nextPost?.comments)) {
           setServerComments(nextPost.comments);
           setCommentsCount(
@@ -268,6 +280,62 @@ const PostDetail = () => {
       setLoading(false);
     }
   }
+
+  const handleFetchCommentSummary = async () => {
+    if (isFetchingSummary) return;
+    if (!resolvedPostIdString) {
+      toast.error("Post not found.");
+      return;
+    }
+    if (!backendUrl) {
+      toast.error("Backend URL is not configured.");
+      return;
+    }
+    const authToken = localStorage.getItem("RabtaLtoken");
+    if (!authToken) {
+      toast.error("Please login to fetch the summary.");
+      return;
+    }
+    if (commentsToRender.length === 0) {
+      toast.error("No comments available to summarize.");
+      return;
+    }
+
+    setIsFetchingSummary(true);
+    try {
+      const res = await fetch(
+        `${backendUrl}/summary/comments/${encodeURIComponent(resolvedPostIdString)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        },
+      );
+      const data = await res.json();
+
+      if (res.ok) {
+        const summaryText =
+          typeof data?.data === "string"
+            ? data.data
+            : typeof data?.data?.summary === "string"
+              ? data.data.summary
+              : "";
+
+        setCommentSummary(summaryText);
+        toast.success(
+          data?.message ?? "Summary of comments fetched succesfully",
+        );
+      } else {
+        toast.error(data?.message ?? "Unable to fetch comment summary.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong while fetching the summary.");
+    } finally {
+      setIsFetchingSummary(false);
+    }
+  };
 
   const handleToggleLike = async () => {
     if (likeLoading) return;
@@ -407,6 +475,7 @@ const PostDetail = () => {
     if (res.ok) {
       toast.success("comment deleted suceessfully");
       console.log(data?.data.comments);
+      setCommentSummary("");
       setServerComments(data?.data.comments);
       setCommentsCount(data?.data.comments.length);
     } else {
@@ -626,15 +695,36 @@ const PostDetail = () => {
                   </div>
                   <button
                     type="button"
+                    onClick={handleFetchCommentSummary}
+                    disabled={isFetchingSummary}
                     className="inline-flex items-center gap-2 rounded-full border border-[#1E4F7A]/30 bg-[#F6FBFF] px-4 py-1.5 text-xs font-semibold text-[#1E4F7A] shadow-sm transition hover:bg-white hover:text-[#143A5A] cursor-pointer"
                   >
-                    Summarize comments
+                    {isFetchingSummary ? (
+                      <>
+                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                        Summarizing...
+                      </>
+                    ) : (
+                      "Summarize comments"
+                    )}
                   </button>
                 </div>
                 <div className="mt-3 rounded-xl border border-dashed border-[#1E4F7A]/30 bg-[#F9FBFF] p-3">
-                  <p className="text-sm text-gray-500">
-                    Summary will appear here after you fetch it.
-                  </p>
+                  {isFetchingSummary ? (
+                    <div className="space-y-2 animate-pulse">
+                      <div className="h-3 rounded-full bg-[#DCEAF6]" />
+                      <div className="h-3 w-11/12 rounded-full bg-[#DCEAF6]" />
+                      <div className="h-3 w-4/5 rounded-full bg-[#DCEAF6]" />
+                    </div>
+                  ) : commentSummary ? (
+                    <p className="text-sm leading-relaxed text-[#1A1A1A]">
+                      {commentSummary}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      Summary will appear here after you fetch it.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : null}

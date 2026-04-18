@@ -7,6 +7,7 @@ import Following from "./pages/Following";
 import CreatePost from "./pages/CreatePost";
 import Search from "./pages/Search";
 import Explore from "./pages/Explore";
+import Chat from "./pages/Chat";
 import Home from "./pages/Home";
 import PostDetail from "./pages/AddComent";
 import Settings from "./pages/Settings";
@@ -61,6 +62,7 @@ const App = () => {
           <Route path="/following/:username" element={<Following />} />
           <Route path="/createPost" element={<CreatePost />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/chat" element={<Chat />} />
           <Route path="/explore" element={<Explore />} />
           <Route path="/home" element={<Home />} />
           <Route path="/addComment" element={<PostDetail />} />

@@ -4,84 +4,56 @@ import { Button } from "@/components/ui/button";
 import { FaSearch } from "react-icons/fa";
 import { Heart, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 
-// 🛑 STATIC MOCK DATA for Explore Grid
-const mockExplorePosts = [
-  {
-    id: 1,
-    img: "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=400&auto=format&fit=crop",
-    likes: "1.2k",
-    comments: 88,
-  },
-  {
-    id: 2,
-    img: "https://images.unsplash.com/photo-1618788372246-79faff05330e?q=80&w=400&auto=format&fit=crop",
-    likes: 902,
-    comments: 45,
-  },
-  {
-    id: 3,
-    img: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=400&auto=format&fit=crop",
-    likes: "2.5k",
-    comments: 150,
-  },
-  {
-    id: 4,
-    img: "https://images.unsplash.com/photo-1504639725590-34d0984388bd?q=80&w=400&auto=format&fit=crop",
-    likes: 670,
-    comments: 22,
-  },
-  {
-    id: 5,
-    img: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?q=80&w=400&auto=format&fit=crop",
-    likes: "3.1k",
-    comments: 210,
-  },
-  {
-    id: 6,
-    img: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=400&auto=format&fit=crop",
-    likes: 880,
-    comments: 56,
-  },
-  {
-    id: 7,
-    img: "https://images.unsplash.com/photo-1555952494-efd681c7e3f9?q=80&w=400&auto=format&fit=crop",
-    likes: "1.1k",
-    comments: 73,
-  },
-  {
-    id: 8,
-    img: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=400&auto=format&fit=crop",
-    likes: 950,
-    comments: 60,
-  },
-  {
-    id: 9,
-    img: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?q=80&w=400&auto=format&fit=crop",
-    likes: "4k",
-    comments: 312,
-  },
-  {
-    id: 10,
-    img: "https://images.unsplash.com/photo-1516259762381-22954d7d3ad2?q=80&w=400&auto=format&fit=crop",
-    likes: 720,
-    comments: 39,
-  },
-  {
-    id: 11,
-    img: "https://images.unsplash.com/photo-1587620962725-abab7fe55159?q=80&w=400&auto=format&fit=crop",
-    likes: "1.8k",
-    comments: 95,
-  },
-  {
-    id: 12,
-    img: "https://images.unsplash.com/photo-1603302576837-37561b2fe188?q=80&w=400&auto=format&fit=crop",
-    likes: "2.9k",
-    comments: 188,
-  },
-];
+type PostType = {
+  _id: string;
+  post: string[];
+  descAudio: string;
+  caption: string;
+  likesCount: number;
+  commentsCount: number;
+  userId?:
+    | string
+    | {
+        _id?: string;
+        username?: string;
+        profilePhoto?: string;
+      };
+};
 
 const Explore = () => {
+  const [post, setPost] = useState<PostType[]>([]);
+  const [loading, isLoading] = useState<boolean>(false);
+  const backend_url = import.meta.env.VITE_BACKEND_URL;
+  const normalizeAssetUrl = (url?: string) => {
+    if (!url) return "";
+    if (/^https?:\/\//i.test(url)) return url;
+    if (!backend_url) return url;
+    const base = backend_url.replace(/\/+$/, "");
+    const path = url.startsWith("/") ? url : `/${url}`;
+    return `${base}${path}`;
+  };
+  useEffect(() => {
+    const token = localStorage.getItem("RabtaLtoken");
+    const fetchPost = async () => {
+      isLoading(true);
+      const res = await fetch(`${backend_url}/all/post`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        method: "GET",
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setPost(data.data);
+        console.log(data.data);
+      }
+      isLoading(false);
+    };
+    fetchPost();
+  }, []);
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
       <div className="w-full sm:w-64 shrink-0">
@@ -156,31 +128,62 @@ const Explore = () => {
         </div>
 
         <div className="grid grid-cols-3 gap-1 md:gap-2 pb-10">
-          {mockExplorePosts.map((post) => (
-            <Link
-              key={post.id}
-              to="/addComment"
-              className="relative aspect-square group cursor-pointer overflow-hidden rounded-md bg-gray-100 border border-gray-100 shadow-sm"
-            >
-              <img
-                src={post.img}
-                alt="Explore Post"
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
+          {loading ? (
+            <p>Fetching Posts ...</p>
+          ) : post?.length > 0 ? (
+            post.map((post) => {
+              const postId = String(post._id);
+              const rawPostImage = post.post?.[0];
+              const imgUrl = normalizeAssetUrl(rawPostImage);
+              const author =
+                post.userId && typeof post.userId === "object"
+                  ? post.userId
+                  : null;
+              const authorUsername = author?.username ?? "";
+              const postState = {
+                post: {
+                  id: postId,
+                  image: rawPostImage,
+                  caption: post.caption,
+                  audio: post.descAudio,
+                  likes: post.likesCount,
+                  comments: post.commentsCount,
+                },
+                author: {
+                  username: authorUsername,
+                  avatar: author?.profilePhoto ?? "",
+                },
+              };
+              return (
+                <Link
+                  key={post._id}
+                  to={postId ? `/post/${postId}` : "/addComment"}
+                  state={postState}
+                  className="relative aspect-square group cursor-pointer overflow-hidden rounded-md bg-gray-100 border border-gray-100 shadow-sm"
+                >
+                  <img
+                    src={imgUrl}
+                    alt="Explore Post"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
 
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-4 sm:gap-6 px-2">
-                <div className="flex items-center gap-1.5 sm:gap-2 text-white font-bold text-sm sm:text-base md:text-lg">
-                  <Heart className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 fill-white" />
-                  <span>{post.likes}</span>
-                </div>
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-4 sm:gap-6 px-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 text-white font-bold text-sm sm:text-base md:text-lg">
+                      <Heart className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 fill-white" />
+                      <span>{post.likesCount}</span>
+                    </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 text-white font-bold text-sm sm:text-base md:text-lg">
-                  <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 fill-white" />
-                  <span>{post.comments}</span>
-                </div>
-              </div>
-            </Link>
-          ))}
+                    <div className="flex items-center gap-1.5 sm:gap-2 text-white font-bold text-sm sm:text-base md:text-lg">
+                      <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 fill-white" />
+                      <span>{post.commentsCount}</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })
+          ) : (
+            <p>No Post to see in feed now See latter</p>
+          )}
         </div>
       </div>
     </div>

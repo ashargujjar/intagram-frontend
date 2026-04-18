@@ -86,9 +86,7 @@ const CreatePost = () => {
       clearRecording();
     } catch (err) {
       console.error(err);
-      toast.error(
-        err instanceof Error ? err.message : "Something went wrong.",
-      );
+      toast.error(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }

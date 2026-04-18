@@ -7,6 +7,7 @@ import {
   FaPlusSquare,
   FaBell,
   FaUserPlus,
+  FaComments,
   FaSignOutAlt, // <-- 1. Imported the Sign Out icon
 } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
@@ -19,6 +20,7 @@ const navLinks = [
   { name: "Home", icon: <FaHome />, path: "/home" },
   { name: "Explore", icon: <FaCompass />, path: "/explore" },
   { name: "Search", icon: <FaSearch />, path: "/search" },
+  { name: "Chat", icon: <FaComments />, path: "/chat" },
   { name: "Notifications", icon: <FaBell />, path: "/notifications" },
   { name: "Friend Requests", icon: <FaUserPlus />, path: "/friend-requests" },
   { name: "Create Photo", icon: <FaPlusSquare />, path: "/createPost" },
