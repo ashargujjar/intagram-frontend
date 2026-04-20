@@ -17,6 +17,7 @@ const CreatePost = () => {
   const [text, setText] = useState<string>("");
   const [photho, setPhoto] = useState<File | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [enhancing, setEnhancing] = useState<boolean>(false);
   const {
     maxDuration,
     isRecording,
@@ -91,6 +92,41 @@ const CreatePost = () => {
       setLoading(false);
     }
   }
+  async function handleEnhanceText() {
+    if (enhancing) return;
+
+    setEnhancing(true);
+    try {
+      const descText = text.trim();
+      const backend_url = import.meta.env.VITE_BACKEND_URL;
+      if (!backend_url) {
+        throw new Error("Backend URL is not configured.");
+      }
+
+      if (descText.length <= 10) {
+        throw new Error("Enter the full description.");
+      }
+      const res = await fetch(`${backend_url}/summariseText`, {
+        method: "POST",
+        body: JSON.stringify({ descText }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const resp = await res.json();
+      if (!resp.success) {
+        const message = resp.message;
+        throw new Error(message || "Failed to create post.");
+      }
+      setText(resp.data);
+      console.log(resp.data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setEnhancing(false);
+    }
+  }
   return (
     <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
       <div className="w-full sm:w-64 shrink-0">
@@ -131,7 +167,7 @@ const CreatePost = () => {
                 <Textarea
                   placeholder="What's on your mind?"
                   maxLength={200}
-                  value={text}
+                  value={enhancing ? "enhancing..." : text}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                     setText(e.target.value);
                   }}
@@ -142,9 +178,14 @@ const CreatePost = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-8 rounded-full border-[#D6E2EC] text-[#1E4F7A] hover:bg-[#F6FBFF]"
+                    className="h-8 rounded-full border-[#D6E2EC] text-[#1E4F7A] hover:bg-[#F6FBFF] cursor-pointer"
+                    onClick={handleEnhanceText}
                   >
-                    Enhance with AI
+                    {enhancing ? (
+                      <span className="loading loading-spinner loading-sm"></span>
+                    ) : (
+                      <p>Enhance with AI</p>
+                    )}
                   </Button>
                 </div>
 
