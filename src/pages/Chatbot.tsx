@@ -1,74 +1,108 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type FormEvent } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, X, Send, Bot, User } from "lucide-react";
 
-// 1. Define the exact shape of a Message
 interface Message {
   id: number;
-  sender: "bot" | "user"; // Strictly limits the sender to these two strings
+  sender: "agent" | "user";
   text: string;
   time: string;
 }
 
-const FloatingChat = () => {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [inputValue, setInputValue] = useState<string>("");
+interface ChatResponseMessage {
+  user: "agent" | "user";
+  content: string;
+}
 
-  // 2. Apply the Message interface to your state array
+const getMessageTime = () =>
+  new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const FloatingChat = () => {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  const token = localStorage.getItem("RabtaLtoken");
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
-      sender: "bot",
+      sender: "agent",
       text: "Hi there! Welcome to ShipSmart. How can I help you with your logistics today?",
       time: "10:00 AM",
     },
   ]);
 
-  // 3. Type the ref so TypeScript knows it will be attached to a <div>
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen]);
 
-  // 4. Type the FormEvent so e.preventDefault() doesn't throw a TS error
-  const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSendMessage = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
 
-    const newUserMsg: Message = {
-      id: Date.now(),
-      sender: "user",
-      text: inputValue,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
+    const text = inputValue.trim();
+    if (!text || !backendUrl || !token || isSending) return;
 
-    setMessages((prev) => [...prev, newUserMsg]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        sender: "user",
+        text,
+        time: getMessageTime(),
+      },
+    ]);
     setInputValue("");
+    setIsSending(true);
 
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: Date.now() + 1,
-        sender: "bot",
-        text: "I am a static mock bot for now! Wire me up to an Express API to make me smart. 🚀",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setMessages((prev) => [...prev, botResponse]);
-    }, 1000);
+    try {
+      const response = await fetch(`${backendUrl}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message: text }),
+      });
+      const data: ChatResponseMessage[] = await response.json();
+      const agentMessage = data.find((item) => item.user === "agent");
+
+      if (agentMessage?.content) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            sender: "agent",
+            text: agentMessage.content,
+            time: getMessageTime(),
+          },
+        ]);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: "agent",
+          text: "Something went wrong. Please try again.",
+          time: getMessageTime(),
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
     <>
-      {/* --- FLOATING CHAT WINDOW --- */}
       {isOpen && (
         <Card className="fixed bottom-24 right-6 w-[350px] sm:w-[400px] h-[500px] bg-white shadow-2xl border-gray-200 z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in-20 duration-300">
           <div className="bg-[#1E4F7A] p-4 flex items-center justify-between text-white shrink-0">
@@ -98,7 +132,7 @@ const FloatingChat = () => {
                 }`}
               >
                 <Avatar className="w-8 h-8 shrink-0 border border-gray-200 shadow-sm">
-                  {msg.sender === "bot" ? (
+                  {msg.sender === "agent" ? (
                     <AvatarFallback className="bg-[#1E4F7A] text-white">
                       <Bot className="w-4 h-4" />
                     </AvatarFallback>
@@ -141,10 +175,12 @@ const FloatingChat = () => {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Type your message..."
+                disabled={isSending}
                 className="flex-1 rounded-full border-gray-200 focus-visible:ring-[#1E4F7A] bg-gray-50"
               />
               <Button
                 type="submit"
+                disabled={isSending}
                 className="w-10 h-10 rounded-full bg-[#1E4F7A] hover:bg-[#F2A32C] text-white p-0 shrink-0 shadow-sm transition-colors cursor-pointer"
               >
                 <Send className="w-4 h-4 ml-0.5" />
@@ -154,16 +190,11 @@ const FloatingChat = () => {
         </Card>
       )}
 
-      {/* --- FLOATING ACTION BUTTON (FAB) --- */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-[#1E4F7A] hover:bg-[#F2A32C] text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center justify-center cursor-pointer"
       >
-        {isOpen ? (
-          <X className="w-6 h-6" />
-        ) : (
-          <MessageSquare className="w-6 h-6" />
-        )}
+        {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
       </button>
     </>
   );
