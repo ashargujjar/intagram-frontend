@@ -267,7 +267,7 @@ const CreatePost = () => {
                     <button
                       className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                       type="button"
-                      onClick={clearRecording}
+                      onClick={() => clearRecording()}
                       disabled={!previewUrl && !recordedBlob}
                     >
                       Cancel audio

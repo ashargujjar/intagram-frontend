@@ -1,13 +1,9 @@
 ﻿import Nav from "@/components/Nav";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FaSearch } from "react-icons/fa";
-import { Send, Phone, Video, MoreHorizontal, MessageCircle } from "lucide-react";
+import { Send, Phone, MoreHorizontal, MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 
@@ -260,9 +256,7 @@ const Chat = () => {
               </span>
             </div>
 
-            {loading && (
-              <p className="text-sm text-[#4B6B88]">Searching...</p>
-            )}
+            {loading && <p className="text-sm text-[#4B6B88]">Searching...</p>}
             {!loading && error && (
               <p className="text-sm text-red-600">{error}</p>
             )}
@@ -386,9 +380,7 @@ const Chat = () => {
                     <div
                       key={msg.id}
                       className={`flex ${
-                        msg.sender === "me"
-                          ? "justify-end"
-                          : "justify-start"
+                        msg.sender === "me" ? "justify-end" : "justify-start"
                       }`}
                     >
                       <div className="max-w-[75%]">

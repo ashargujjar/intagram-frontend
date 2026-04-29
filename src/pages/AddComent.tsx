@@ -430,6 +430,12 @@ const PostDetail = () => {
   const normalizeUsername = (value?: string) =>
     (value ?? "").replace("@", "").toLowerCase();
   const tokenPayload = getTokenPayload(token);
+  if (!tokenPayload || typeof tokenPayload === "string") {
+    return;
+  }
+  if(!tokenPayload?.username){
+    return null
+  }
   const currentUsername = normalizeUsername(tokenPayload?.username);
   const currentUserId = tokenPayload?.id ?? "";
   const authorUsernameNormalized = normalizeUsername(authorUsername);
@@ -633,7 +639,9 @@ const PostDetail = () => {
                   role="button"
                   aria-pressed={isLiked}
                   className={`w-7 h-7 transition-all duration-200 ${
-                    likeLoading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                    likeLoading
+                      ? "opacity-60 cursor-not-allowed"
+                      : "cursor-pointer"
                   } ${
                     isLiked
                       ? "text-[#F2A32C] fill-[#F2A32C]"
@@ -900,7 +908,7 @@ const PostDetail = () => {
                 <button
                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
                   type="button"
-                  onClick={clearRecording}
+                  onClick={() => clearRecording()}
                   disabled={!audioPreviewUrl && !recordedBlob}
                 >
                   Cancel audio

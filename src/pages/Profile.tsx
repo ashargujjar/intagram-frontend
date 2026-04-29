@@ -17,13 +17,13 @@ type PhotoPost = {
 };
 
 type GridItem = {
-  id: string | number;
-  postId: string | number;
+  id: string;
+  postId: string;
   img: string;
   likes: number;
   comments: number;
-  caption?: string;
-  audio?: string;
+  caption: string;
+  audio: string;
 };
 
 type RelationState = {
@@ -175,18 +175,21 @@ const Profile = () => {
     normalizeAssetUrl(viewedUser.profilePhoto) ||
     "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop";
   const introAudioSrc = normalizeAssetUrl(viewedUser.introAudio);
-  const gridItems: GridItem[] = posts
-    .map((post, index) => {
+
+  const gridItems = posts
+    .map((post) => {
       const postId = post._id ?? post.id;
       const img = post.post?.[0];
+
       if (!postId || !img) return null;
+
       return {
         id: postId,
         postId,
         img: normalizeAssetUrl(img),
         likes: post.likesCount ?? 0,
         comments: post.commentsCount ?? 0,
-        caption: post.caption,
+        caption: post.caption ?? "",
         audio: normalizeAssetUrl(post.descAudio),
       };
     })
