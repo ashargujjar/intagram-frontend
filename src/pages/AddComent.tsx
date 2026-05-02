@@ -16,6 +16,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { formatTime, useAudioRecorder } from "@/lib/useAudioRecorder";
+import CenterLoader from "@/components/ui/Spinner";
 
 type PostDetailState = {
   post?: {
@@ -100,6 +101,7 @@ const PostDetail = () => {
   const [isFetchingComments, setIsFetchingComments] = useState(false);
   const [commentSummary, setCommentSummary] = useState("");
   const [isFetchingSummary, setIsFetchingSummary] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const {
     maxDuration: maxAudioSeconds,
     isRecording,
@@ -153,6 +155,7 @@ const PostDetail = () => {
           );
           if (Array.isArray(post?.comments)) {
             setServerComments(post.comments);
+
             setCommentsCount(
               typeof post?.commentsCount === "number"
                 ? post.commentsCount
@@ -178,6 +181,7 @@ const PostDetail = () => {
         if (isActive) {
           setIsFetchingComments(false);
         }
+        setPageLoading(false);
       }
     };
     loadComments();
@@ -433,8 +437,8 @@ const PostDetail = () => {
   if (!tokenPayload || typeof tokenPayload === "string") {
     return;
   }
-  if(!tokenPayload?.username){
-    return null
+  if (!tokenPayload?.username) {
+    return null;
   }
   const currentUsername = normalizeUsername(tokenPayload?.username);
   const currentUserId = tokenPayload?.id ?? "";
@@ -578,364 +582,382 @@ const PostDetail = () => {
     authorUsername && authorUsername !== "@user"
       ? authorUsername.replace("@", "").charAt(0).toUpperCase()
       : "U";
-
   return (
-    <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
-      {/* 1. SIDEBAR NAVIGATION */}
-      <div className="w-full sm:w-64 shrink-0">
-        <Nav />
-      </div>
+    <>
+      {pageLoading ? (
+        <CenterLoader />
+      ) : (
+        <div className="w-full p-4 md:p-6 flex flex-col sm:flex-row gap-8 mx-auto max-w-6xl">
+          {/* 1. SIDEBAR NAVIGATION */}
+          <div className="w-full sm:w-64 shrink-0">
+            <Nav />
+          </div>
 
-      {/* 2. MAIN CONTENT */}
-      <div className="flex-1 flex justify-center mt-4 sm:mt-0">
-        <Card className="flex flex-col lg:flex-row w-full max-w-5xl bg-white shadow-md border-gray-100 rounded-xl overflow-hidden lg:max-h-[750px]">
-          {/* ==========================================
+          {/* 2. MAIN CONTENT */}
+          <div className="flex-1 flex justify-center mt-4 sm:mt-0">
+            <Card className="flex flex-col lg:flex-row w-full max-w-5xl bg-white shadow-md border-gray-100 rounded-xl overflow-hidden lg:max-h-[750px]">
+              {/* ==========================================
               LEFT SIDE: Header, Image, Likes, Caption 
               ========================================== */}
-          <div className="flex flex-col w-full lg:w-1/2 border-b lg:border-b-0 lg:border-r border-gray-100 bg-gray-50">
-            <div className="flex items-center justify-between p-4 bg-white border-b border-gray-100">
-              <div className="flex items-center gap-3 cursor-pointer">
-                <Avatar className="w-9 h-9 border border-gray-100 shadow-sm">
-                  <AvatarImage src={authorAvatar} alt={authorUsername} />
-                  <AvatarFallback className="bg-[#1E4F7A] text-white font-bold">
-                    {authorFallback}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="font-bold text-[#1A1A1A] hover:underline">
-                  {authorUsername}
-                </span>
-              </div>
-              <MoreHorizontal className="w-5 h-5 text-gray-500 cursor-pointer hover:text-[#1E4F7A]" />
-            </div>
-
-            <div className="relative w-full aspect-square bg-black flex items-center justify-center overflow-hidden">
-              {imageSrc ? (
-                <img
-                  src={imageSrc}
-                  alt={imageAlt}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-xs text-gray-400">No image available</div>
-              )}
-
-              {canDeletePost ? (
-                <button
-                  type="button"
-                  onClick={handleDeletePost}
-                  disabled={isDeletingPost}
-                  className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-red-200 bg-white/90 px-3 py-1 text-xs font-semibold text-red-600 shadow-sm backdrop-blur transition hover:bg-red-50 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  {isDeletingPost ? "Deleting..." : "Delete"}
-                </button>
-              ) : null}
-            </div>
-
-            <div className="flex flex-col p-4 bg-white shrink-0">
-              <div className="flex items-center gap-4 mb-3">
-                <Heart
-                  onClick={handleToggleLike}
-                  role="button"
-                  aria-pressed={isLiked}
-                  className={`w-7 h-7 transition-all duration-200 ${
-                    likeLoading
-                      ? "opacity-60 cursor-not-allowed"
-                      : "cursor-pointer"
-                  } ${
-                    isLiked
-                      ? "text-[#F2A32C] fill-[#F2A32C]"
-                      : "text-[#1A1A1A] hover:text-[#F2A32C] hover:scale-110"
-                  }`}
-                />
-                <Send className="w-7 h-7 text-[#1A1A1A] cursor-pointer hover:text-[#1E4F7A] hover:scale-110 transition-all duration-200" />
-              </div>
-              {likesLabel ? (
-                <div className="text-base font-bold text-[#1A1A1A] mb-2">
-                  {likesLabel}{" "}
-                  <span className="font-medium text-gray-600">likes</span>
-                </div>
-              ) : null}
-              {caption ? (
-                <div className="text-sm text-[#1A1A1A] leading-relaxed">
-                  <span className="font-bold mr-2 cursor-pointer hover:underline">
-                    {authorUsername}
-                  </span>
-                  {caption}
-                </div>
-              ) : null}
-
-              {/* Story note (audio) */}
-              {audioSrc ? (
-                <div className="mt-4 rounded-xl border border-gray-200 bg-[#F6FBFF] p-3 shadow-sm">
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                    <span className="font-semibold text-[#1E4F7A]">
-                      Story note
+              <div className="flex flex-col w-full lg:w-1/2 border-b lg:border-b-0 lg:border-r border-gray-100 bg-gray-50">
+                <div className="flex items-center justify-between p-4 bg-white border-b border-gray-100">
+                  <div className="flex items-center gap-3 cursor-pointer">
+                    <Avatar className="w-9 h-9 border border-gray-100 shadow-sm">
+                      <AvatarImage src={authorAvatar} alt={authorUsername} />
+                      <AvatarFallback className="bg-[#1E4F7A] text-white font-bold">
+                        {authorFallback}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="font-bold text-[#1A1A1A] hover:underline">
+                      {authorUsername}
                     </span>
                   </div>
-                  <audio controls src={audioSrc} className="w-full h-9" />
+                  <MoreHorizontal className="w-5 h-5 text-gray-500 cursor-pointer hover:text-[#1E4F7A]" />
                 </div>
-              ) : null}
-            </div>
-          </div>
 
-          {/* ==========================================
+                <div className="relative w-full aspect-square bg-black flex items-center justify-center overflow-hidden">
+                  {imageSrc ? (
+                    <img
+                      src={imageSrc}
+                      alt={imageAlt}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-xs text-gray-400">
+                      No image available
+                    </div>
+                  )}
+
+                  {canDeletePost ? (
+                    <button
+                      type="button"
+                      onClick={handleDeletePost}
+                      disabled={isDeletingPost}
+                      className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-red-200 bg-white/90 px-3 py-1 text-xs font-semibold text-red-600 shadow-sm backdrop-blur transition hover:bg-red-50 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {isDeletingPost ? "Deleting..." : "Delete"}
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-col p-4 bg-white shrink-0">
+                  <div className="flex items-center gap-4 mb-3">
+                    <Heart
+                      onClick={handleToggleLike}
+                      role="button"
+                      aria-pressed={isLiked}
+                      className={`w-7 h-7 transition-all duration-200 ${
+                        likeLoading
+                          ? "opacity-60 cursor-not-allowed"
+                          : "cursor-pointer"
+                      } ${
+                        isLiked
+                          ? "text-[#F2A32C] fill-[#F2A32C]"
+                          : "text-[#1A1A1A] hover:text-[#F2A32C] hover:scale-110"
+                      }`}
+                    />
+                    <Send className="w-7 h-7 text-[#1A1A1A] cursor-pointer hover:text-[#1E4F7A] hover:scale-110 transition-all duration-200" />
+                  </div>
+                  {likesLabel ? (
+                    <div className="text-base font-bold text-[#1A1A1A] mb-2">
+                      {likesLabel}{" "}
+                      <span className="font-medium text-gray-600">likes</span>
+                    </div>
+                  ) : null}
+                  {caption ? (
+                    <div className="text-sm text-[#1A1A1A] leading-relaxed">
+                      <span className="font-bold mr-2 cursor-pointer hover:underline">
+                        {authorUsername}
+                      </span>
+                      {caption}
+                    </div>
+                  ) : null}
+
+                  {/* Story note (audio) */}
+                  {audioSrc ? (
+                    <div className="mt-4 rounded-xl border border-gray-200 bg-[#F6FBFF] p-3 shadow-sm">
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                        <span className="font-semibold text-[#1E4F7A]">
+                          Story note
+                        </span>
+                      </div>
+                      <audio controls src={audioSrc} className="w-full h-9" />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* ==========================================
               RIGHT SIDE: Comments List & Input 
               ========================================== */}
-          <div className="flex flex-col w-full lg:w-1/2 bg-white h-[500px] lg:h-auto">
-            <div className="hidden lg:flex items-center p-4 border-b border-gray-100">
-              <h3 className="font-bold text-[#1A1A1A] text-lg">
-                Comments
-                {typeof commentsCount === "number" ? ` (${commentsCount})` : ""}
-              </h3>
-            </div>
-
-            {commentsToRender.length > 0 ? (
-              <div className="px-4 pt-4 pb-3 border-b border-gray-100 bg-white">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[#1A1A1A]">
-                      AI Comment Summary
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Summarize the latest comments on this post.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleFetchCommentSummary}
-                    disabled={isFetchingSummary}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#1E4F7A]/30 bg-[#F6FBFF] px-4 py-1.5 text-xs font-semibold text-[#1E4F7A] shadow-sm transition hover:bg-white hover:text-[#143A5A] cursor-pointer"
-                  >
-                    {isFetchingSummary ? (
-                      <>
-                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                        Summarizing...
-                      </>
-                    ) : (
-                      "Summarize comments"
-                    )}
-                  </button>
+              <div className="flex flex-col w-full lg:w-1/2 bg-white h-[500px] lg:h-auto">
+                <div className="hidden lg:flex items-center p-4 border-b border-gray-100">
+                  <h3 className="font-bold text-[#1A1A1A] text-lg">
+                    Comments
+                    {typeof commentsCount === "number"
+                      ? ` (${commentsCount})`
+                      : ""}
+                  </h3>
                 </div>
-                <div className="mt-3 rounded-xl border border-dashed border-[#1E4F7A]/30 bg-[#F9FBFF] p-3">
-                  {isFetchingSummary ? (
-                    <div className="space-y-2 animate-pulse">
-                      <div className="h-3 rounded-full bg-[#DCEAF6]" />
-                      <div className="h-3 w-11/12 rounded-full bg-[#DCEAF6]" />
-                      <div className="h-3 w-4/5 rounded-full bg-[#DCEAF6]" />
-                    </div>
-                  ) : commentSummary ? (
-                    <p className="text-sm leading-relaxed text-[#1A1A1A]">
-                      {commentSummary}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      Summary will appear here after you fetch it.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : null}
 
-            {/* Scrollable Comments Area */}
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
-              {isFetchingComments ? (
-                <div className="text-sm text-gray-500">Loading comments...</div>
-              ) : commentsToRender.length === 0 ? (
-                <div className="text-sm text-gray-500">
-                  No comments yet. Be the first to add one!
-                </div>
-              ) : (
-                commentsToRender.map((commentItem, index) => {
-                  const commentId =
-                    commentItem._id ??
-                    commentItem.commentData?._id ??
-                    `comment-${index}`;
-                  const commentText = getCommentText(commentItem);
-                  const commentAudioRaw = getCommentAudio(commentItem);
-                  const commentAudio = normalizeAssetUrl(commentAudioRaw);
-                  const createdAt = getCommentCreatedAt(commentItem);
-                  const commentTime = formatRelativeTime(createdAt);
-                  const user = getCommentUser(commentItem);
-                  const handle = getCommentUsername(user);
-                  const avatar = getCommentAvatar(user);
-                  return (
-                    <div
-                      key={commentId}
-                      className="flex gap-3 items-start group"
-                    >
-                      <Avatar className="w-8 h-8 shrink-0 mt-1">
-                        <AvatarImage src={avatar} />
-                        <AvatarFallback>U</AvatarFallback>
-                      </Avatar>
-
-                      <div className="flex flex-col w-full">
-                        <div className="text-sm text-[#1A1A1A]">
-                          <Link
-                            to={
-                              handle == authorUsername
-                                ? `/profile`
-                                : `/profile?user=${handle}`
-                            }
-                            className="font-bold mr-2 hover:underline cursor-pointer"
-                          >
-                            {handle}
-                          </Link>
-                          {commentText ? (
-                            <span>{commentText}</span>
-                          ) : commentAudio ? (
-                            <span className="text-gray-500 italic">
-                              Voice comment
-                            </span>
-                          ) : null}
-                        </div>
-
-                        {commentAudio && (
-                          <div className="mt-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                            <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                              <span className="font-semibold text-[#1E4F7A]">
-                                Voice comment
-                              </span>
-                            </div>
-                            <audio
-                              controls
-                              src={commentAudio}
-                              className="w-full h-9"
-                            />
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 font-medium mb-1">
-                          {commentTime ? <span>{commentTime}</span> : null}
-                          <button className="hover:text-[#1E4F7A] transition-colors cursor-pointer font-bold">
-                            Reply
-                          </button>
-                          {canDeleteComment(commentItem) ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                deleteComment(commentId);
-                              }}
-                              disabled={isDeletingComment}
-                              className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100 transition cursor-pointer"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              {isDeletingComment ? "..." : "Delete"}
-                            </button>
-                          ) : null}
-                        </div>
+                {commentsToRender.length > 0 ? (
+                  <div className="px-4 pt-4 pb-3 border-b border-gray-100 bg-white">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-[#1A1A1A]">
+                          AI Comment Summary
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Summarize the latest comments on this post.
+                        </p>
                       </div>
-
-                      <Heart className="w-3.5 h-3.5 text-gray-400 cursor-pointer hover:text-[#F2A32C] shrink-0 mt-1" />
+                      <button
+                        type="button"
+                        onClick={handleFetchCommentSummary}
+                        disabled={isFetchingSummary}
+                        className="inline-flex items-center gap-2 rounded-full border border-[#1E4F7A]/30 bg-[#F6FBFF] px-4 py-1.5 text-xs font-semibold text-[#1E4F7A] shadow-sm transition hover:bg-white hover:text-[#143A5A] cursor-pointer"
+                      >
+                        {isFetchingSummary ? (
+                          <>
+                            <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                            Summarizing...
+                          </>
+                        ) : (
+                          "Summarize comments"
+                        )}
+                      </button>
                     </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Bottom Input Area to Write a Comment/Reply */}
-            <div className="p-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-3 shrink-0">
-              <div className="flex items-center gap-3">
-                <Avatar className="w-8 h-8 border border-gray-200 shadow-sm hidden sm:block">
-                  <AvatarImage src={authorAvatar} />
-                </Avatar>
-                <Input
-                  type="text"
-                  placeholder="Add a comment or reply..."
-                  className="flex-1 bg-white border-gray-200 focus-visible:ring-[#1E4F7A] rounded-full px-4"
-                  value={comment.text ?? ""}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setComment((prev) => ({
-                      ...prev,
-                      text: e.target.value,
-                    }));
-                  }}
-                />
-                <Button
-                  className="bg-transparent text-[#1E4F7A] hover:bg-transparent hover:text-[#F2A32C] font-bold px-2 shadow-none cursor-pointer"
-                  onClick={handleCommentPost}
-                  disabled={loading}
-                >
-                  {loading ? <p>posting...</p> : <p>Post</p>}
-                </Button>
-              </div>
-
-              {/* Voice Comment Option */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className="text-xs text-gray-500 font-medium">
-                  Voice comment (max 15 seconds)
-                </span>
-                {audioError ? (
-                  <span className="text-xs text-red-500">{audioError}</span>
+                    <div className="mt-3 rounded-xl border border-dashed border-[#1E4F7A]/30 bg-[#F9FBFF] p-3">
+                      {isFetchingSummary ? (
+                        <div className="space-y-2 animate-pulse">
+                          <div className="h-3 rounded-full bg-[#DCEAF6]" />
+                          <div className="h-3 w-11/12 rounded-full bg-[#DCEAF6]" />
+                          <div className="h-3 w-4/5 rounded-full bg-[#DCEAF6]" />
+                        </div>
+                      ) : commentSummary ? (
+                        <p className="text-sm leading-relaxed text-[#1A1A1A]">
+                          {commentSummary}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-500">
+                          Summary will appear here after you fetch it.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 ) : null}
-                <div className="flex items-center gap-2">
-                  <button
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-[#F6FBFF] transition disabled:opacity-60 disabled:cursor-not-allowed"
-                    onClick={startRecording}
+
+                {/* Scrollable Comments Area */}
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
+                  {isFetchingComments ? (
+                    <div className="text-sm text-gray-500">
+                      Loading comments...
+                    </div>
+                  ) : commentsToRender.length === 0 ? (
+                    <div className="text-sm text-gray-500">
+                      No comments yet. Be the first to add one!
+                    </div>
+                  ) : (
+                    commentsToRender.map((commentItem, index) => {
+                      const commentId =
+                        commentItem._id ??
+                        commentItem.commentData?._id ??
+                        `comment-${index}`;
+                      const commentText = getCommentText(commentItem);
+                      const commentAudioRaw = getCommentAudio(commentItem);
+                      const commentAudio = normalizeAssetUrl(commentAudioRaw);
+                      const createdAt = getCommentCreatedAt(commentItem);
+                      const commentTime = formatRelativeTime(createdAt);
+                      const user = getCommentUser(commentItem);
+                      const handle = getCommentUsername(user);
+                      const avatar = getCommentAvatar(user);
+                      return (
+                        <div
+                          key={commentId}
+                          className="flex gap-3 items-start group"
+                        >
+                          <Avatar className="w-8 h-8 shrink-0 mt-1">
+                            <AvatarImage src={avatar} />
+                            <AvatarFallback>U</AvatarFallback>
+                          </Avatar>
+
+                          <div className="flex flex-col w-full">
+                            <div className="text-sm text-[#1A1A1A]">
+                              <Link
+                                to={
+                                  handle == authorUsername
+                                    ? `/profile`
+                                    : `/profile?user=${handle}`
+                                }
+                                className="font-bold mr-2 hover:underline cursor-pointer"
+                              >
+                                {handle}
+                              </Link>
+                              {commentText ? (
+                                <span>{commentText}</span>
+                              ) : commentAudio ? (
+                                <span className="text-gray-500 italic">
+                                  Voice comment
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {commentAudio && (
+                              <div className="mt-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                                <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                                  <span className="font-semibold text-[#1E4F7A]">
+                                    Voice comment
+                                  </span>
+                                </div>
+                                <audio
+                                  controls
+                                  src={commentAudio}
+                                  className="w-full h-9"
+                                />
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 font-medium mb-1">
+                              {commentTime ? <span>{commentTime}</span> : null}
+                              <button className="hover:text-[#1E4F7A] transition-colors cursor-pointer font-bold">
+                                Reply
+                              </button>
+                              {canDeleteComment(commentItem) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    deleteComment(commentId);
+                                  }}
+                                  disabled={isDeletingComment}
+                                  className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100 transition cursor-pointer"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  {isDeletingComment ? "..." : "Delete"}
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <Heart className="w-3.5 h-3.5 text-gray-400 cursor-pointer hover:text-[#F2A32C] shrink-0 mt-1" />
+                        </div>
+                      );
+                    })
+                  )}
+                  <Button
                     type="button"
-                    disabled={isRecording || loading}
+                    className="mx-auto mt-2 h-10 rounded-full border border-[#D6E2EC] bg-gradient-to-r from-[#1E4F7A] to-[#2A6A9F] px-6 text-sm font-semibold text-white shadow-sm transition hover:from-[#143A5A] hover:to-[#1E4F7A] cursor-pointer"
                   >
-                    <Mic className="w-4 h-4" />
-                    {audioPreviewUrl ? "Re-record" : "Record"}
-                  </button>
-                  <button
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                    onClick={stopRecording}
-                    type="button"
-                    disabled={!isRecording}
-                  >
-                    <Square className="w-4 h-4" />
-                    Stop
-                  </button>
+                    More Comments
+                  </Button>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <div className="w-24 h-2 rounded-full bg-gray-200 overflow-hidden">
-                    <div
-                      className="h-full bg-[#1E4F7A] transition-all"
-                      style={{ width: `${progress * 100}%` }}
+
+                {/* Bottom Input Area to Write a Comment/Reply */}
+                <div className="p-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-3 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-8 h-8 border border-gray-200 shadow-sm hidden sm:block">
+                      <AvatarImage src={authorAvatar} />
+                    </Avatar>
+                    <Input
+                      type="text"
+                      placeholder="Add a comment or reply..."
+                      className="flex-1 bg-white border-gray-200 focus-visible:ring-[#1E4F7A] rounded-full px-4"
+                      value={comment.text ?? ""}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setComment((prev) => ({
+                          ...prev,
+                          text: e.target.value,
+                        }));
+                      }}
                     />
+                    <Button
+                      className="bg-transparent text-[#1E4F7A] hover:bg-transparent hover:text-[#F2A32C] font-bold px-2 shadow-none cursor-pointer"
+                      onClick={handleCommentPost}
+                      disabled={loading}
+                    >
+                      {loading ? <p>posting...</p> : <p>Post</p>}
+                    </Button>
                   </div>
-                  {formatTime(activeSeconds)} / {formatTime(maxAudioSeconds)}
-                </div>
-                <button
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E4F7A] text-white text-xs font-semibold hover:bg-[#143A5A] transition disabled:opacity-60 disabled:cursor-not-allowed"
-                  type="button"
-                  onClick={handleCommentPost}
-                  disabled={loading || !recordedBlob}
-                >
-                  Post audio
-                </button>
-                <button
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                  type="button"
-                  onClick={() => clearRecording()}
-                  disabled={!audioPreviewUrl && !recordedBlob}
-                >
-                  Cancel audio
-                </button>
-              </div>
-              {audioPreviewUrl ? (
-                <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                    <span className="font-semibold text-[#1E4F7A]">
-                      Preview voice comment
+
+                  {/* Voice Comment Option */}
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <span className="text-xs text-gray-500 font-medium">
+                      Voice comment (max 15 seconds)
                     </span>
-                    {recordedSeconds ? (
-                      <span>{formatTime(recordedSeconds)}</span>
+                    {audioError ? (
+                      <span className="text-xs text-red-500">{audioError}</span>
                     ) : null}
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#1E4F7A] text-xs font-semibold hover:bg-[#F6FBFF] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                        onClick={startRecording}
+                        type="button"
+                        disabled={isRecording || loading}
+                      >
+                        <Mic className="w-4 h-4" />
+                        {audioPreviewUrl ? "Re-record" : "Record"}
+                      </button>
+                      <button
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                        onClick={stopRecording}
+                        type="button"
+                        disabled={!isRecording}
+                      >
+                        <Square className="w-4 h-4" />
+                        Stop
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <div className="w-24 h-2 rounded-full bg-gray-200 overflow-hidden">
+                        <div
+                          className="h-full bg-[#1E4F7A] transition-all"
+                          style={{ width: `${progress * 100}%` }}
+                        />
+                      </div>
+                      {formatTime(activeSeconds)} /{" "}
+                      {formatTime(maxAudioSeconds)}
+                    </div>
+                    <button
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E4F7A] text-white text-xs font-semibold hover:bg-[#143A5A] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                      type="button"
+                      onClick={handleCommentPost}
+                      disabled={loading || !recordedBlob}
+                    >
+                      Post audio
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                      type="button"
+                      onClick={() => clearRecording()}
+                      disabled={!audioPreviewUrl && !recordedBlob}
+                    >
+                      Cancel audio
+                    </button>
                   </div>
-                  <audio
-                    controls
-                    src={audioPreviewUrl}
-                    className="w-full h-9"
-                  />
+                  {audioPreviewUrl ? (
+                    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                        <span className="font-semibold text-[#1E4F7A]">
+                          Preview voice comment
+                        </span>
+                        {recordedSeconds ? (
+                          <span>{formatTime(recordedSeconds)}</span>
+                        ) : null}
+                      </div>
+                      <audio
+                        controls
+                        src={audioPreviewUrl}
+                        className="w-full h-9"
+                      />
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
+              </div>
+            </Card>
           </div>
-        </Card>
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 };
 
