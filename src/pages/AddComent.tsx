@@ -844,12 +844,6 @@ const PostDetail = () => {
                       );
                     })
                   )}
-                  <Button
-                    type="button"
-                    className="mx-auto mt-2 h-10 rounded-full border border-[#D6E2EC] bg-gradient-to-r from-[#1E4F7A] to-[#2A6A9F] px-6 text-sm font-semibold text-white shadow-sm transition hover:from-[#143A5A] hover:to-[#1E4F7A] cursor-pointer"
-                  >
-                    More Comments
-                  </Button>
                 </div>
 
                 {/* Bottom Input Area to Write a Comment/Reply */}

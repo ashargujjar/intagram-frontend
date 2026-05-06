@@ -1,6 +1,7 @@
 ﻿import Nav from "@/components/Nav";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import CenterLoader from "@/components/ui/Spinner";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -25,6 +26,7 @@ const Notifications = () => {
   const token = localStorage.getItem("RabtaLtoken");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
     if (!backend_url || !token) return;
@@ -47,6 +49,7 @@ const Notifications = () => {
         console.log(error);
       } finally {
         setLoading(false);
+        setPageLoading(false);
       }
     };
     loadNotifications();
@@ -121,11 +124,7 @@ const Notifications = () => {
 
         <div className="w-full max-w-2xl mt-8">
           <div className="flex flex-col gap-2">
-            {loading && (
-              <div className="text-sm text-[#4B6B88]">
-                Loading notifications...
-              </div>
-            )}
+            {pageLoading && <CenterLoader />}
             {!loading && notifications.length === 0 && (
               <div className="text-sm text-[#4B6B88]">
                 No notifications yet.
@@ -151,9 +150,7 @@ const Notifications = () => {
                   <div
                     key={notif.id}
                     className={`flex items-center justify-between p-4 rounded-2xl transition-colors border border-[#E6EEF5] ${
-                      isUnread
-                        ? "bg-[#1E4F7A]/5"
-                        : "bg-white/90 hover:bg-white"
+                      isUnread ? "bg-[#1E4F7A]/5" : "bg-white/90 hover:bg-white"
                     }`}
                   >
                     <div className="flex items-start gap-4 cursor-pointer w-full">

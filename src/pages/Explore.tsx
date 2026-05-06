@@ -5,6 +5,7 @@ import { FaSearch } from "react-icons/fa";
 import { Heart, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import CenterLoader from "@/components/ui/Spinner";
 
 type PostType = {
   _id: string;
@@ -24,7 +25,8 @@ type PostType = {
 
 const Explore = () => {
   const [post, setPost] = useState<PostType[]>([]);
-  const [loading, isLoading] = useState<boolean>(false);
+  const [pageLoading, setPageLoading] = useState(true);
+
   const backend_url = import.meta.env.VITE_BACKEND_URL;
   const normalizeAssetUrl = (url?: string) => {
     if (!url) return "";
@@ -37,7 +39,6 @@ const Explore = () => {
   useEffect(() => {
     const token = localStorage.getItem("RabtaLtoken");
     const fetchPost = async () => {
-      isLoading(true);
       const res = await fetch(`${backend_url}/all/post`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -50,8 +51,9 @@ const Explore = () => {
         setPost(data.data);
         console.log(data.data);
       }
-      isLoading(false);
+      setPageLoading(false);
     };
+
     fetchPost();
   }, []);
   return (
@@ -128,8 +130,8 @@ const Explore = () => {
         </div>
 
         <div className="grid grid-cols-3 gap-1 md:gap-2 pb-10">
-          {loading ? (
-            <p>Fetching Posts ...</p>
+          {pageLoading ? (
+            <CenterLoader />
           ) : post?.length > 0 ? (
             post.map((post) => {
               const postId = String(post._id);
